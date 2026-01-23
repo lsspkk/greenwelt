@@ -1,0 +1,5 @@
+# Minimal single TOML for the prototype
+world_seed = 123456
+
+[cities]
+count = 3

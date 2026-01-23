@@ -1,0 +1,1 @@
+Put assets here (textures, tiles, icons). All assets must live under src/assets/ for pygbag.
