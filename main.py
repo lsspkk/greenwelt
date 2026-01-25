@@ -25,8 +25,9 @@ async def main():
     exit_font = pygame.font.Font(None, 36)
     exit_rect = pygame.Rect(1870, 10, 40, 40)
 
-    # Fullscreen button (bottom right corner)
-    fullscreen_rect = pygame.Rect(1870, 1030, 40, 40)
+    # Fullscreen button (bottom right corner, 1.5x size)
+    fullscreen_size = int(40 * 1.5)  # 60
+    fullscreen_rect = pygame.Rect(1920 - fullscreen_size - 10, 1080 - fullscreen_size - 10, fullscreen_size, fullscreen_size)
     fullscreen_icon_color = (40, 80, 120)
 
     # Initialize shared systems
@@ -138,30 +139,24 @@ async def main():
         fs_color = (60, 120, 180) if fullscreen_hover else fullscreen_icon_color
         pygame.draw.rect(screen, fs_color, fullscreen_rect, border_radius=6)
         # Draw a simple rectangle icon for fullscreen
-        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(-14, -14), 2, border_radius=3)
+        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(-int(fullscreen_size * 0.35), -int(fullscreen_size * 0.35)), 2, border_radius=3)
         # Optionally, add arrows to indicate fullscreen
         pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.left + 10, fullscreen_rect.top + 10),
-            (fullscreen_rect.left + 18, fullscreen_rect.top + 10),
-            (fullscreen_rect.left + 10, fullscreen_rect.top + 18)
+            (fullscreen_rect.left + int(fullscreen_size * 0.17), fullscreen_rect.top + int(fullscreen_size * 0.17)),
+            (fullscreen_rect.left + int(fullscreen_size * 0.3), fullscreen_rect.top + int(fullscreen_size * 0.17)),
+            (fullscreen_rect.left + int(fullscreen_size * 0.17), fullscreen_rect.top + int(fullscreen_size * 0.3))
         ])
         pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.right - 10, fullscreen_rect.bottom - 10),
-            (fullscreen_rect.right - 18, fullscreen_rect.bottom - 10),
-            (fullscreen_rect.right - 10, fullscreen_rect.bottom - 18)
+            (fullscreen_rect.right - int(fullscreen_size * 0.17), fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
+            (fullscreen_rect.right - int(fullscreen_size * 0.3), fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
+            (fullscreen_rect.right - int(fullscreen_size * 0.17), fullscreen_rect.bottom - int(fullscreen_size * 0.3))
         ])
         # Handle fullscreen toggle
         if input_mgr.clicked_in_rect(fullscreen_rect):
-            # Toggle fullscreen for desktop
-            if not debug.is_wasm:
-                pygame.display.toggle_fullscreen()
+            if debug.is_wasm and js is not None:
+                toggle_fullscreen_browser()
             else:
-                # For WASM/browser, toggle between windowed and fullscreen
-                flags = screen.get_flags()
-                if flags & pygame.FULLSCREEN:
-                    pygame.display.set_mode((1920, 1080))
-                else:
-                    pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+                toggle_fullscreen_desktop()
             debug.info("Fullscreen toggled")
 
         # Draw UI (only if overlay not covering)
@@ -205,7 +200,8 @@ async def main():
                 box_w = max(name_surf.get_width(), type_surf.get_width()) + 40
                 box_h = 80
                 screen_w, screen_h = screen.get_size()
-                box_x = screen_w - box_w - 30
+                # Move box left to avoid fullscreen button
+                box_x = screen_w - box_w - fullscreen_size - 30  # 30px padding after fullscreen button
                 box_y = screen_h - box_h - 30
 
                 # Background box
