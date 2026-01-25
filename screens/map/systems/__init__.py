@@ -12,13 +12,13 @@ class MapRenderSystem(esper.Processor):
         self.screen = screen
 
     def process(self, dt: float):
-        # Draw background first
+        # Fill background first (in case image doesn't cover full screen)
+        self.screen.fill((16, 22, 30))
+
+        # Draw map background image centered
         for ent, (bg,) in esper.get_components(MapBackground):
             if bg.image is not None:
-                self.screen.blit(bg.image, (0, 0))
-            else:
-                # Fallback: fill with dark color
-                self.screen.fill((16, 22, 30))
+                self.screen.blit(bg.image, (bg.offset_x, bg.offset_y))
 
         # Draw rectangles
         for ent, (pos, rect) in esper.get_components(Position, RectangleRenderable):

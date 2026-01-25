@@ -1,7 +1,8 @@
 # Map screen - top-down world map view
 import pygame
 import esper
-from typing import Optional, List
+import json
+from typing import Optional, List, Dict
 
 from shared.components import Position, Velocity, DotRenderable
 from shared.systems import MovementSystem
@@ -19,6 +20,9 @@ class MapScreen:
         self.player_entity = None
         self.map_entity = None
         self.is_initialized = False
+        self.locations: List[Dict] = []
+        self.map_offset_x = 0
+        self.map_offset_y = 0
 
     def initialize(self):
         """Set up the ECS world for this map"""
@@ -48,14 +52,63 @@ class MapScreen:
         self.is_initialized = True
 
     def load_map_image(self, image_path: str):
-        """Load the background image for this map"""
+        """Load the background image for this map, centered on screen"""
         try:
             image = pygame.image.load(image_path).convert()
             bg = esper.component_for_entity(self.map_entity, MapBackground)
             bg.image_path = image_path
             bg.image = image
+
+            # Calculate offset to center the image
+            screen_w, screen_h = self.screen.get_size()
+            img_w, img_h = image.get_size()
+            bg.offset_x = (screen_w - img_w) // 2
+            bg.offset_y = (screen_h - img_h) // 2
+            self.map_offset_x = bg.offset_x
+            self.map_offset_y = bg.offset_y
         except Exception as e:
             print(f"Failed to load map image: {e}")
+
+    def load_locations(self, json_path: str):
+        """Load location markers from JSON file"""
+        try:
+            with open(json_path, "r") as f:
+                self.locations = json.load(f)
+        except Exception as e:
+            print(f"Failed to load locations: {e}")
+
+    def get_start_position(self) -> tuple:
+        """Get the starting position (shop location) adjusted for map offset"""
+        for loc in self.locations:
+            if loc["type"] == "shop":
+                # Adjust coordinates for centered map
+                x = loc["x"] + self.map_offset_x
+                y = loc["y"] + self.map_offset_y
+                return (x, y)
+        # Default if no shop found
+        return (400.0, 400.0)
+
+    def get_nearby_location(self) -> Optional[Dict]:
+        """Check if player is near any location, return it if so"""
+        if self.player_entity is None:
+            return None
+
+        pos = esper.component_for_entity(self.player_entity, Position)
+
+        for loc in self.locations:
+            # Adjust location coordinates for centered map
+            loc_x = loc["x"] + self.map_offset_x
+            loc_y = loc["y"] + self.map_offset_y
+            tolerance = loc.get("tolerance", 50)
+
+            dx = pos.x - loc_x
+            dy = pos.y - loc_y
+            distance = (dx * dx + dy * dy) ** 0.5
+
+            if distance <= tolerance:
+                return loc
+
+        return None
 
     def load_collision_grid(self, grid: List[List[int]], tile_width: int = 64, tile_height: int = 64):
         """Load collision data for this map"""

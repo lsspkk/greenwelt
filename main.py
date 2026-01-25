@@ -39,11 +39,12 @@ async def main():
     # Create the first map screen
     current_map = MapScreen(screen, "world")
     current_map.initialize()
+    current_map.load_map_image("assets/map1.png")
+    current_map.load_locations("data/map1_locations.json")
 
-    # Add some test markers (positions scaled for 1920x1080)
-    current_map.add_marker("Town A", 400, 270, "city")
-    current_map.add_marker("Town B", 1400, 675, "city")
-    current_map.add_marker("Forest", 800, 850, "landmark")
+    # Set player starting position at the shop (home)
+    start_x, start_y = current_map.get_start_position()
+    current_map.set_player_position(start_x, start_y)
 
     debug.info("Map screen initialized")
 
@@ -145,6 +146,41 @@ async def main():
                 ui.draw_click_indicator(last_click)
 
             ui.draw_coordinates(input_mgr)
+
+            # Check for nearby location and display in bottom right
+            nearby = current_map.get_nearby_location()
+            if nearby:
+                loc_name = nearby["name"]
+                loc_type = nearby["type"]
+                type_labels = {
+                    "shop": "Plant Shop",
+                    "office": "Office",
+                    "restaurant": "Restaurant",
+                    "house": "Home"
+                }
+                type_label = type_labels.get(loc_type, loc_type)
+
+                # Draw location info box in bottom right
+                info_text = f"{loc_name}"
+                type_text = f"({type_label})"
+
+                name_surf = ui.font.render(info_text, True, (255, 255, 255))
+                type_surf = ui.small_font.render(type_text, True, (180, 180, 180))
+
+                box_w = max(name_surf.get_width(), type_surf.get_width()) + 40
+                box_h = 80
+                screen_w, screen_h = screen.get_size()
+                box_x = screen_w - box_w - 30
+                box_y = screen_h - box_h - 30
+
+                # Background box
+                box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
+                pygame.draw.rect(screen, (30, 40, 50), box_rect, border_radius=10)
+                pygame.draw.rect(screen, (80, 120, 160), box_rect, 2, border_radius=10)
+
+                # Text
+                screen.blit(name_surf, (box_x + 20, box_y + 15))
+                screen.blit(type_surf, (box_x + 20, box_y + 48))
 
             if message_timer > 0:
                 msg_surf = ui.font.render(message, True, (255, 255, 100))

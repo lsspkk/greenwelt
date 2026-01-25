@@ -9,6 +9,8 @@ class MapBackground:
     """Background image for a map"""
     image_path: str = ""
     image: pygame.Surface = None  # Loaded at runtime
+    offset_x: int = 0  # For centering non-fullscreen images
+    offset_y: int = 0
 
 
 @dataclass

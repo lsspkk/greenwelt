@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Kasvikauppa",
+    "x": 647,
+    "y": 928,
+    "type": "shop",
+    "tolerance": 50
+  },
+  {
+    "name": "Hiiritoimisto",
+    "x": 1201,
+    "y": 234,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Ilves toimisto",
+    "x": 347,
+    "y": 539,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Siili toimisto",
+    "x": 417,
+    "y": 622,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Kettukonttori",
+    "x": 1058,
+    "y": 836,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Tokio",
+    "x": 387,
+    "y": 780,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "J\u00e4\u00e4tel\u00f6 Bar",
+    "x": 213,
+    "y": 279,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Soppala",
+    "x": 909,
+    "y": 481,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Puistokahvila",
+    "x": 673,
+    "y": 668,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "SP Pankki",
+    "x": 571,
+    "y": 329,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Aamu",
+    "x": 656,
+    "y": 182,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Pinja",
+    "x": 637,
+    "y": 313,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Minttu",
+    "x": 610,
+    "y": 417,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Oona",
+    "x": 615,
+    "y": 368,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Eemil",
+    "x": 648,
+    "y": 246,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Edwin",
+    "x": 977,
+    "y": 183,
+    "type": "house",
+    "tolerance": 50
+  }
+]
