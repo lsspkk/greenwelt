@@ -2,6 +2,11 @@
 
 Minimal pygame/esper/pygbag plant courier game.
 
+    uv run python main.py          # dev 
+    uv run python -m bygbag .      # test in browser
+    uv run build.py                # build for GitHub Pages
+
+
 # Pygbag and pygame-ce
 
 https://github.com/pygame-web

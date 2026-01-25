@@ -3,6 +3,41 @@ import asyncio
 import pygame
 import sys
 
+# Add this for browser JS interop (Pyodide/pygbag)
+try:
+    import js
+except ImportError:
+    js = None
+
+def toggle_fullscreen_browser():
+    # Only works in browser (Pyodide/WASM)
+    if js is not None:
+        try:
+            canvas = js.document.getElementById("canvas")
+            js.console.log(f"Canvas element: {canvas}")
+            js.console.log(f"Current fullscreenElement: {js.document.fullscreenElement}")
+            if js.document.fullscreenElement:
+                js.console.log("Exiting fullscreen...")
+                js.document.exitFullscreen()
+            elif canvas is not None:
+                js.console.log("Requesting fullscreen on canvas...")
+                canvas.requestFullscreen()
+            else:
+                js.console.log("Canvas not found, requesting fullscreen on documentElement...")
+                js.document.documentElement.requestFullscreen()
+        except Exception as e:
+            js.console.log(f"Fullscreen error: {e}")
+            import traceback
+            js.console.log(traceback.format_exc())
+
+def toggle_fullscreen_desktop():
+    try:
+        import pygame._sdl2.video
+        win = pygame._sdl2.video.Window.from_display_module()
+        win.fullscreen = not win.fullscreen
+    except Exception:
+        pygame.display.toggle_fullscreen()
+
 # Import from shared modules
 from shared.input.input_manager import InputManager
 from shared.debug.debug_log import debug
