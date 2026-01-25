@@ -251,6 +251,25 @@ When something doesn't work in browser but works locally:
 3. **Test imports individually** with try/except and display results on pygame surface
 4. **Bundle the library locally** if import fails with "ModuleNotFoundError"
 
+## Screen Resolution
+
+**Fixed resolution: 1920x1080** (Full HD, optimized for tablets)
+
+No scaling system - all sizes are hardcoded for this resolution. This keeps the code simple.
+
+### Standard Sizes
+
+| Element | Size |
+|---------|------|
+| Screen | 1920x1080 |
+| Font small | 36px |
+| Font medium | 42px |
+| Font large | 52px |
+| Button | 200x70 |
+| Dialog | ~1400x600 |
+| Player dot | radius 24 |
+| Map markers | radius 18 |
+
 ## Working Configuration
 
 As of January 2026, this configuration works:
