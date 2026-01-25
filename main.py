@@ -19,12 +19,34 @@ def toggle_fullscreen_browser():
             if js.document.fullscreenElement:
                 js.console.log("Exiting fullscreen...")
                 js.document.exitFullscreen()
-            elif canvas is not None:
-                js.console.log("Requesting fullscreen on canvas...")
-                canvas.requestFullscreen()
             else:
-                js.console.log("Canvas not found, requesting fullscreen on documentElement...")
-                js.document.documentElement.requestFullscreen()
+                # Try canvas first
+                try:
+                    js.console.log("Requesting fullscreen on canvas...")
+                    promise = canvas.requestFullscreen()
+                    if hasattr(promise, "then"):
+                        promise.then(lambda _: js.console.log("Canvas fullscreen success"),
+                                     lambda err: js.console.log(f"Canvas fullscreen error: {err}"))
+                except Exception as e_canvas:
+                    js.console.log(f"Canvas fullscreen error: {e_canvas}")
+                    # Try document.body
+                    try:
+                        js.console.log("Requesting fullscreen on document.body...")
+                        promise = js.document.body.requestFullscreen()
+                        if hasattr(promise, "then"):
+                            promise.then(lambda _: js.console.log("Body fullscreen success"),
+                                         lambda err: js.console.log(f"Body fullscreen error: {err}"))
+                    except Exception as e_body:
+                        js.console.log(f"Body fullscreen error: {e_body}")
+                        # Try document.documentElement
+                        try:
+                            js.console.log("Requesting fullscreen on documentElement...")
+                            promise = js.document.documentElement.requestFullscreen()
+                            if hasattr(promise, "then"):
+                                promise.then(lambda _: js.console.log("DocumentElement fullscreen success"),
+                                             lambda err: js.console.log(f"DocumentElement fullscreen error: {err}"))
+                        except Exception as e_doc:
+                            js.console.log(f"DocumentElement fullscreen error: {e_doc}")
         except Exception as e:
             js.console.log(f"Fullscreen error: {e}")
             import traceback
@@ -160,14 +182,15 @@ async def main():
 
 
         # Draw exit button (always visible)
-        exit_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, exit_rect)
-        exit_color = (80, 40, 40) if exit_hover else (50, 30, 30)
-        pygame.draw.rect(screen, exit_color, exit_rect, border_radius=6)
-        exit_text = exit_font.render("X", True, (180, 180, 180))
-        exit_text_rect = exit_text.get_rect(center=exit_rect.center)
-        screen.blit(exit_text, exit_text_rect)
-        if input_mgr.clicked_in_rect(exit_rect):
-            running = False
+        if not debug.is_wasm:  # Only show exit button in desktop/native
+            exit_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, exit_rect)
+            exit_color = (80, 40, 40) if exit_hover else (50, 30, 30)
+            pygame.draw.rect(screen, exit_color, exit_rect, border_radius=6)
+            exit_text = exit_font.render("X", True, (180, 180, 180))
+            exit_text_rect = exit_text.get_rect(center=exit_rect.center)
+            screen.blit(exit_text, exit_text_rect)
+            if input_mgr.clicked_in_rect(exit_rect):
+                running = False
 
         # Draw fullscreen button (bottom right)
         fullscreen_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, fullscreen_rect)
