@@ -25,6 +25,10 @@ async def main():
     exit_font = pygame.font.Font(None, 36)
     exit_rect = pygame.Rect(1870, 10, 40, 40)
 
+    # Fullscreen button (bottom right corner)
+    fullscreen_rect = pygame.Rect(1870, 1030, 40, 40)
+    fullscreen_icon_color = (40, 80, 120)
+
     # Initialize shared systems
     input_mgr = InputManager()
     ui = UIRenderer(screen)
@@ -129,6 +133,36 @@ async def main():
         if input_mgr.clicked_in_rect(exit_rect):
             running = False
 
+        # Draw fullscreen button (bottom right)
+        fullscreen_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, fullscreen_rect)
+        fs_color = (60, 120, 180) if fullscreen_hover else fullscreen_icon_color
+        pygame.draw.rect(screen, fs_color, fullscreen_rect, border_radius=6)
+        # Draw a simple rectangle icon for fullscreen
+        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(-14, -14), 2, border_radius=3)
+        # Optionally, add arrows to indicate fullscreen
+        pygame.draw.polygon(screen, (200, 200, 200), [
+            (fullscreen_rect.left + 10, fullscreen_rect.top + 10),
+            (fullscreen_rect.left + 18, fullscreen_rect.top + 10),
+            (fullscreen_rect.left + 10, fullscreen_rect.top + 18)
+        ])
+        pygame.draw.polygon(screen, (200, 200, 200), [
+            (fullscreen_rect.right - 10, fullscreen_rect.bottom - 10),
+            (fullscreen_rect.right - 18, fullscreen_rect.bottom - 10),
+            (fullscreen_rect.right - 10, fullscreen_rect.bottom - 18)
+        ])
+        # Handle fullscreen toggle
+        if input_mgr.clicked_in_rect(fullscreen_rect):
+            # Toggle fullscreen for desktop
+            if not debug.is_wasm:
+                pygame.display.toggle_fullscreen()
+            else:
+                # For WASM/browser, toggle between windowed and fullscreen
+                flags = screen.get_flags()
+                if flags & pygame.FULLSCREEN:
+                    pygame.display.set_mode((1920, 1080))
+                else:
+                    pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+            debug.info("Fullscreen toggled")
 
         # Draw UI (only if overlay not covering)
         if not debug.overlay_visible:
