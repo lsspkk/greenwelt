@@ -1,7 +1,9 @@
 # Map-specific ECS components
+
 from dataclasses import dataclass
 from typing import List
 import pygame
+from shared.debug.debug_log import debug
 
 
 @dataclass
@@ -14,30 +16,44 @@ class MapBackground:
 
 
 @dataclass
-class CollisionLayer:
-    """Collision data for a map - stores walkable/blocked areas"""
-    # The collision map is a 2D grid where:
-    # 0 = walkable
-    # 1 = blocked
-    grid: List[List[int]] = None
-    tile_width: int = 64
-    tile_height: int = 64
+class RoadLayer:
+    """Road data for a map - stores strokes and a walkable mask"""
+    strokes: List = None  # List of {points: [(x,y),...], width: int}
+    road_surface: pygame.Surface = None  # Rendered roads for display
+    road_mask: pygame.Surface = None  # Binary mask for collision
+    color: tuple = (100, 100, 100)
+    alpha: int = 180
+    offset_x: int = 0
+    offset_y: int = 0
 
-    def is_walkable(self, x: float, y: float) -> bool:
-        """Check if a world position is walkable"""
-        if self.grid is None:
-            return True
+    def is_on_road(self, x: float, y: float) -> bool:
+        """Check if a position is on a road, with debug logging"""
+        debug.debug(f"is_on_road check: input=({x:.2f}, {y:.2f}) offset=({self.offset_x}, {self.offset_y})")
+        if self.road_mask is None:
+            debug.debug("road_mask is None: returning True (no roads, can walk anywhere)")
+            return True  # No roads = can walk anywhere
 
-        tile_x = int(x / self.tile_width)
-        tile_y = int(y / self.tile_height)
+        # Adjust for map offset
+        mask_x = int(x - self.offset_x)
+        mask_y = int(y - self.offset_y)
+        debug.debug(f"Adjusted mask coords: ({mask_x}, {mask_y})")
 
-        # Out of bounds is not walkable
-        if tile_y < 0 or tile_y >= len(self.grid):
+        # Check bounds
+        if mask_x < 0 or mask_y < 0:
+            debug.debug("Out of bounds (negative): returning False")
             return False
-        if tile_x < 0 or tile_x >= len(self.grid[tile_y]):
+        if mask_x >= self.road_mask.get_width():
+            debug.debug(f"Out of bounds (mask_x >= width): {mask_x} >= {self.road_mask.get_width()}")
+            return False
+        if mask_y >= self.road_mask.get_height():
+            debug.debug(f"Out of bounds (mask_y >= height): {mask_y} >= {self.road_mask.get_height()}")
             return False
 
-        return self.grid[tile_y][tile_x] == 0
+        # Check if pixel is white (road) or black (not road)
+        pixel = self.road_mask.get_at((mask_x, mask_y))
+        on_road = pixel[0] > 128  # Check red channel
+        debug.debug(f"Pixel at ({mask_x}, {mask_y}) = {pixel}, on_road={on_road}")
+        return on_road
 
 
 @dataclass

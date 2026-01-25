@@ -1,7 +1,7 @@
 [
   {
     "name": "Kasvikauppa",
-    "x": 647,
+    "x": 676,
     "y": 928,
     "type": "shop",
     "tolerance": 50
@@ -108,6 +108,27 @@
     "name": "Edwin",
     "x": 977,
     "y": 183,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Sushi",
+    "x": 901,
+    "y": 954,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Eemeli",
+    "x": 1115,
+    "y": 686,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Vilma",
+    "x": 1040,
+    "y": 567,
     "type": "house",
     "tolerance": 50
   }

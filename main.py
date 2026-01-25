@@ -40,6 +40,7 @@ async def main():
     current_map = MapScreen(screen, "world")
     current_map.initialize()
     current_map.load_map_image("assets/map1.png")
+    current_map.load_roads("data/map1_roads.json")
     current_map.load_locations("data/map1_locations.json")
 
     # Set player starting position at the shop (home)
@@ -87,10 +88,7 @@ async def main():
 
         input_mgr.process_events(events)
 
-        # Debug icon click (always check first)
-        if debug_overlay.draw_icon(input_mgr):
-            debug.overlay_visible = not debug.overlay_visible
-            debug.info(f"Debug overlay {'opened' if debug.overlay_visible else 'closed'}")
+
 
         # If overlay is open, handle its input
         if debug.overlay_visible:
@@ -117,7 +115,9 @@ async def main():
             message_timer -= dt
 
         # Update and render map
-        current_map.update(dt)
+        if not debug.overlay_visible:
+            current_map.update(dt)
+
 
         # Draw exit button (always visible)
         exit_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, exit_rect)
@@ -128,6 +128,7 @@ async def main():
         screen.blit(exit_text, exit_text_rect)
         if input_mgr.clicked_in_rect(exit_rect):
             running = False
+
 
         # Draw UI (only if overlay not covering)
         if not debug.overlay_visible:
@@ -185,6 +186,12 @@ async def main():
             if message_timer > 0:
                 msg_surf = ui.font.render(message, True, (255, 255, 100))
                 screen.blit(msg_surf, (200, 30))
+
+
+        # Draw debug icon last so it's always on top
+        if debug_overlay.draw_icon(input_mgr):
+            debug.overlay_visible = not debug.overlay_visible
+            debug.info(f"Debug overlay {'opened' if debug.overlay_visible else 'closed'}")
 
         # Log periodic stats
         if frame_count % 300 == 0:

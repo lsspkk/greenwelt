@@ -6,8 +6,8 @@ from typing import Optional, List, Dict
 
 from shared.components import Position, Velocity, DotRenderable
 from shared.systems import MovementSystem
-from screens.map.components import MapBackground, CollisionLayer, PlayerOnMap, MapMarker
-from screens.map.systems import MapRenderSystem, CollisionSystem
+from screens.map.components import MapBackground, RoadLayer, PlayerOnMap, MapMarker
+from screens.map.systems import MapRenderSystem, RoadCollisionSystem
 
 
 class MapScreen:
@@ -31,14 +31,14 @@ class MapScreen:
         esper.clear_database()
 
         # Add systems
-        esper.add_processor(CollisionSystem(), priority=3)
+        esper.add_processor(RoadCollisionSystem(), priority=3)
         esper.add_processor(MovementSystem(), priority=2)
         esper.add_processor(MapRenderSystem(self.screen), priority=1)
 
-        # Create map entity with background and collision
+        # Create map entity with background and roads
         self.map_entity = esper.create_entity(
             MapBackground(),
-            CollisionLayer()
+            RoadLayer()
         )
 
         # Create player entity (sized for 1920x1080)
@@ -68,6 +68,67 @@ class MapScreen:
             self.map_offset_y = bg.offset_y
         except Exception as e:
             print(f"Failed to load map image: {e}")
+
+    def load_roads(self, json_path: str):
+        """Load roads from JSON and create render surface and collision mask"""
+        try:
+            with open(json_path, "r") as f:
+                data = json.load(f)
+
+            strokes = data.get("strokes", [])
+            color = tuple(data.get("color", (100, 100, 100)))
+            alpha = data.get("alpha", 180)
+
+            if not strokes:
+                return
+
+            road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
+            road_layer.strokes = strokes
+            road_layer.color = color
+            road_layer.alpha = alpha
+            road_layer.offset_x = self.map_offset_x
+            road_layer.offset_y = self.map_offset_y
+
+            # Get map image size for surface creation
+            bg = esper.component_for_entity(self.map_entity, MapBackground)
+            if bg.image is None:
+                return
+
+            img_w, img_h = bg.image.get_size()
+
+            # Create road display surface with transparency
+            road_surface = pygame.Surface((img_w, img_h), pygame.SRCALPHA)
+
+            # Create road mask (white = road, black = no road)
+            road_mask = pygame.Surface((img_w, img_h))
+            road_mask.fill((0, 0, 0))
+
+            # Draw all strokes
+            for stroke in strokes:
+                points = stroke["points"]
+                width = stroke["width"]
+
+                if len(points) < 2:
+                    continue
+
+                # Draw on display surface
+                for i, point in enumerate(points):
+                    pygame.draw.circle(road_surface, color, point, width // 2)
+                    if i > 0:
+                        pygame.draw.line(road_surface, color, points[i - 1], point, width)
+
+                # Draw on mask (white)
+                for i, point in enumerate(points):
+                    pygame.draw.circle(road_mask, (255, 255, 255), point, width // 2)
+                    if i > 0:
+                        pygame.draw.line(road_mask, (255, 255, 255), points[i - 1], point, width)
+
+            road_surface.set_alpha(alpha)
+            road_layer.road_surface = road_surface
+            road_layer.road_mask = road_mask
+
+        except Exception as e:
+            print(f"Failed to load roads: {e}")
 
     def load_locations(self, json_path: str):
         """Load location markers from JSON file"""
