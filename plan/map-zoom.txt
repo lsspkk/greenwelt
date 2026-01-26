@@ -1,0 +1,69 @@
+# Map Zoom and Camera Plan
+
+## Objective
+Implement a 2x zoom for the map and ensure the player remains centered on the screen. Prevent the player from moving off the map.
+
+## Analysis
+- **Current System**:
+  - `Position` components are effectively in Screen Space (or World Space + Offset).
+  - Map rendering is 1:1 and centered using static offsets (`map_offset_x`, `map_offset_y`).
+  - Inputs are in Screen Space.
+  - Collision checks apply the inverse offset to map to mask coordinates.
+
+- **Proposed System**:
+  - **Coordinate System**: Adopt a pure **World Space** for logic (0,0 is top-left of map).
+  - **Camera**: Introduce a camera system that tracks the player.
+  - **Zoom**: Fix zoom level at 2.0x (configurable).
+  - **Rendering**: Transform World Space to Screen Space dynamically:
+    `ScreenPos = (WorldPos - CameraPos) * Zoom + ScreenCenter`
+  - **Input**: Transform Screen Space click to World Space target:
+    `WorldTarget = (ScreenClick - ScreenCenter) / Zoom + CameraPos`
+
+## Implementation Steps
+
+### 1. Update `MapScreen` (Logic & State)
+- Add state variables: `zoom: float = 2.0`, `camera_pos: List[float] = [0, 0]`.
+- Modify `load_map_image` and `load_roads`:
+  - **Do NOT** calculate or store static centering offsets (`map_offset_x/y`). Set them to 0.
+  - Optionally pre-scale images if performance requires, but for now, we will handle scaling in render.
+- Modify `get_start_position`:
+  - Return raw map coordinates (from JSON/Logic), do **not** add offsets.
+- Modify `update(dt)`:
+  - Update `camera_pos` to match `player_entity` position.
+
+### 2. Update `MapRenderSystem` (Rendering)
+- Accept `camera_pos` and `zoom` in `process` (or via constructor reference to MapScreen).
+- **Background & Roads**:
+  - Instead of blitting at `offset_x/y`, calculate position:
+    `draw_x = (0 - cam_x) * zoom + screen_w / 2`
+    `draw_y = (0 - cam_y) * zoom + screen_h / 2`
+  - Use `pygame.transform.scale_by` (or `rotozoom`/`scale`) to render the map/roads at 2x size.
+  - *Optimization*: Pre-scale the `MapBackground.image` and `RoadLayer.road_surface` by `zoom` factor stored in the components or a cache, to avoid per-frame scaling.
+- **Entities (Dots, Rects)**:
+  - Transform position:
+    `draw_x = (pos.x - cam_x) * zoom + screen_w / 2`
+    `draw_y = (pos.y - cam_y) * zoom + screen_h / 2`
+  - Scale sizes: Multiply radius/dimensions by `zoom`.
+
+### 3. Update `RoadCollisionSystem`
+- Since `Position` will now be in pure World Space (0,0 aligned with map image), and `RoadMask` is also 0,0 aligned:
+  - Remove logic that subtracts `offset_x/y`.
+  - Ensure `is_on_road` checks simple bounds `0 <= x < width` etc.
+
+### 4. Update `main.py` (Input)
+- Update click handling:
+  - Convert screen click `(mouse_x, mouse_y)` to world coordinates.
+  - `world_x = (mouse_x - screen_w/2) / zoom + cam_x`
+  - `world_y = (mouse_y - screen_h/2) / zoom + cam_y`
+  - Pass this `world_x, world_y` to `move_player_toward`.
+
+### 5. Off-screen Indicators (Future Proofing)
+- The plan focuses on zoom/centering first.
+- For off-screen objects, we can later compare `ScreenPos` with screen bounds and draw indicators at the edges.
+
+## Tasks
+1. [ ] Modify `main.py` to handle coordinate conversion for inputs.
+2. [ ] Modify `MapScreen` to manage camera state and remove static offsets.
+3. [ ] Modify `MapRenderSystem` to apply camera transform and zoom.
+4. [ ] Modify `RoadCollisionSystem` to use raw coordinates.
+5. [ ] Verify player stays centered and collision works.
