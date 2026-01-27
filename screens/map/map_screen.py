@@ -168,26 +168,25 @@ class MapScreen:
         return (400.0, 400.0)
 
     def get_nearby_location(self) -> Optional[Dict]:
-        """Check if player is near any location, return it if so"""
+        """Return the closest location within tolerance, or None if none are close."""
         if self.player_entity is None:
             return None
 
         pos = esper.component_for_entity(self.player_entity, Position)
-
+        closest_loc = None
+        closest_dist = None
         for loc in self.locations:
-            # Adjust location coordinates for centered map
             loc_x = loc["x"] + self.map_offset_x
             loc_y = loc["y"] + self.map_offset_y
             tolerance = loc.get("tolerance", 50)
-
             dx = pos.x - loc_x
             dy = pos.y - loc_y
             distance = (dx * dx + dy * dy) ** 0.5
-
             if distance <= tolerance:
-                return loc
-
-        return None
+                if closest_loc is None or distance < closest_dist:
+                    closest_loc = loc
+                    closest_dist = distance
+        return closest_loc
 
     def load_collision_grid(self, grid: List[List[int]], tile_width: int = 64, tile_height: int = 64):
         """Load collision data for this map"""
