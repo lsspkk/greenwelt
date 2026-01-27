@@ -2,6 +2,7 @@
 from screens.dialog.ui_renderer import UIRenderer
 from screens.dialog.base_dialog import BaseDialog
 from screens.dialog.components import Button, DialogChoice
+from screens.dialog.components.fullscreen_button import draw_fullscreen_button
 from screens.map import MapScreen
 from shared.debug.debug_overlay import DebugOverlay
 from shared.debug.debug_log import debug
@@ -28,6 +29,7 @@ def toggle_fullscreen_browser():
             if js.document.fullscreenElement:
                 js.console.log("Exiting fullscreen...")
                 js.document.exitFullscreen()
+                return False
             else:
                 # Try canvas first
                 try:
@@ -36,6 +38,7 @@ def toggle_fullscreen_browser():
                     if hasattr(promise, "then"):
                         promise.then(lambda _: js.console.log("Canvas fullscreen success"),
                                      lambda err: js.console.log(f"Canvas fullscreen error: {err}"))
+                    return True
                 except Exception as e_canvas:
                     js.console.log(f"Canvas fullscreen error: {e_canvas}")
                     # Try document.body
@@ -46,6 +49,7 @@ def toggle_fullscreen_browser():
                         if hasattr(promise, "then"):
                             promise.then(lambda _: js.console.log("Body fullscreen success"),
                                          lambda err: js.console.log(f"Body fullscreen error: {err}"))
+                        return True
                     except Exception as e_body:
                         js.console.log(f"Body fullscreen error: {e_body}")
                         # Try document.documentElement
@@ -56,13 +60,17 @@ def toggle_fullscreen_browser():
                             if hasattr(promise, "then"):
                                 promise.then(lambda _: js.console.log("DocumentElement fullscreen success"),
                                              lambda err: js.console.log(f"DocumentElement fullscreen error: {err}"))
+                            return True
                         except Exception as e_doc:
                             js.console.log(
                                 f"DocumentElement fullscreen error: {e_doc}")
+                            return False
         except Exception as e:
             js.console.log(f"Fullscreen error: {e}")
             import traceback
             js.console.log(traceback.format_exc())
+            return False
+    return False
 
 
 def toggle_fullscreen_desktop():
@@ -148,6 +156,9 @@ async def main():
 
     debug.info("Entering main loop")
 
+    # Track fullscreen state for browser
+    is_fullscreen = False
+
     while running:
         dt = clock.tick(60) / 1000.0
         frame_count += 1
@@ -208,37 +219,27 @@ async def main():
                 running = False
 
         # Draw fullscreen button (bottom right)
-        fullscreen_hover = input_mgr.is_point_in_rect(
-            input_mgr.touch_pos, fullscreen_rect)
-        fs_color = (60, 120, 180) if fullscreen_hover else fullscreen_icon_color
-        pygame.draw.rect(screen, fs_color, fullscreen_rect, border_radius=6)
-        # Draw a simple rectangle icon for fullscreen
-        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(
-            -int(fullscreen_size * 0.35), -int(fullscreen_size * 0.35)), 2, border_radius=3)
-        # Optionally, add arrows to indicate fullscreen
-        pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.left + int(fullscreen_size * 0.17),
-             fullscreen_rect.top + int(fullscreen_size * 0.17)),
-            (fullscreen_rect.left + int(fullscreen_size * 0.3),
-             fullscreen_rect.top + int(fullscreen_size * 0.17)),
-            (fullscreen_rect.left + int(fullscreen_size * 0.17),
-             fullscreen_rect.top + int(fullscreen_size * 0.3))
-        ])
-        pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.right - int(fullscreen_size * 0.17),
-             fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
-            (fullscreen_rect.right - int(fullscreen_size * 0.3),
-             fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
-            (fullscreen_rect.right - int(fullscreen_size * 0.17),
-             fullscreen_rect.bottom - int(fullscreen_size * 0.3))
-        ])
-        # Handle fullscreen toggle
-        if input_mgr.clicked_in_rect(fullscreen_rect):
+        # Only show if not already fullscreen
+        if not debug.is_wasm or not is_fullscreen:
+            fullscreen_hover = input_mgr.is_point_in_rect(
+                input_mgr.touch_pos, fullscreen_rect)
+            draw_fullscreen_button(
+                screen,
+                fullscreen_rect,
+                fullscreen_hover,
+                fullscreen_icon_color
+            )
+            # Handle fullscreen toggle
+            if input_mgr.clicked_in_rect(fullscreen_rect):
+                if debug.is_wasm and js is not None:
+                    is_fullscreen = toggle_fullscreen_browser()
+                else:
+                    toggle_fullscreen_desktop()
+                debug.info("Fullscreen toggled")
+        else:
+            # In WASM/browser, update fullscreen state in case user exited via ESC or browser UI
             if debug.is_wasm and js is not None:
-                toggle_fullscreen_browser()
-            else:
-                toggle_fullscreen_desktop()
-            debug.info("Fullscreen toggled")
+                is_fullscreen = js.document.fullscreenElement is not None
 
         # Draw UI (only if overlay not covering)
         if not debug.overlay_visible:

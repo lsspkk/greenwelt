@@ -243,7 +243,7 @@ class MapScreen:
         dy = target_y - pos.y
         dist_squared = dx * dx + dy * dy
 
-        if dist_squared < 60:
+        if dist_squared < (60 * 60):
             pos.x = target_x
             pos.y = target_y
             vel.vx = 0.0
