@@ -29,29 +29,20 @@ class MapScreen:
 
     def initialize(self):
         """Set up the ECS world for this map"""
-        # Create a new esper world for this map
         esper.switch_world(self.world_name)
         esper.clear_database()
-
-        # Add systems
-        esper.add_processor(RoadCollisionSystem(), priority=3)
-        esper.add_processor(MovementSystem(), priority=2)
+        # Only add the render system (no movement/collision systems for player)
         esper.add_processor(MapRenderSystem(self.screen), priority=1)
-
-        # Create map entity with background and roads
         self.map_entity = esper.create_entity(
             MapBackground(),
             RoadLayer()
         )
-
-        # Create player entity (sized for 1920x1080)
         self.player_entity = esper.create_entity(
             Position(400.0, 400.0),
             Velocity(0.0, 0.0),
             DotRenderable(radius=24, color=(200, 240, 200)),
             PlayerOnMap()
         )
-
         self.is_initialized = True
 
     def load_map_image(self, image_path: str):
@@ -232,27 +223,37 @@ class MapScreen:
                 road_layer.camera_pos_y = y
 
     def move_player_toward(self, target_x: float, target_y: float, speed: float = 500.0):
-        """Start moving the player toward a target position"""
+        """Move the player toward a target position, checking collision directly."""
         if self.player_entity is None:
             return
 
         pos = esper.component_for_entity(self.player_entity, Position)
         vel = esper.component_for_entity(self.player_entity, Velocity)
+        road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
 
         dx = target_x - pos.x
         dy = target_y - pos.y
         dist_squared = dx * dx + dy * dy
+        dist = dist_squared ** 0.5
 
-        if dist_squared < (60 * 60):
+        # Always check the path for collision, even for small moves
+        steps = int(max(abs(dx), abs(dy)) // 2) + 1
+        collision = False
+        for i in range(steps + 1):
+            t = i / steps if steps > 0 else 0
+            x = pos.x + dx * t
+            y = pos.y + dy * t
+            if not road_layer.is_on_road(x, y):
+                collision = True
+                break
+
+        if not collision:
             pos.x = target_x
             pos.y = target_y
-            vel.vx = 0.0
-            vel.vy = 0.0
-            return
-
-        dist = dist_squared ** 0.5
-        vel.vx = speed * dx / dist
-        vel.vy = speed * dy / dist
+        # Always stop velocity (no continuous movement system)
+        vel.vx = 0.0
+        vel.vy = 0.0
+        return
 
     def stop_player(self):
         """Stop the player's movement"""
