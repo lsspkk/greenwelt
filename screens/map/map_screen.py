@@ -221,7 +221,7 @@ class MapScreen:
                 road_layer.camera_pos_x = x
                 road_layer.camera_pos_y = y
 
-    def move_player_toward(self, target_x: float, target_y: float, speed: float = 500.0, dt: float = 1/60):
+    def move_player_toward(self, target_x: float, target_y: float, speed: float = 1000.0, dt: float = 1/60):
         """Move the player a single step toward the target, checking collision."""
         if self.player_entity is None:
             return
