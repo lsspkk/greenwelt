@@ -23,6 +23,9 @@ class MapScreen:
         self.locations: List[Dict] = []
         self.map_offset_x = 0
         self.map_offset_y = 0
+        self.zoom = 2.0
+        self.camera_pos_x = 0
+        self.camera_pos_y = 0
 
     def initialize(self):
         """Set up the ECS world for this map"""
@@ -56,16 +59,24 @@ class MapScreen:
         try:
             image = pygame.image.load(image_path).convert()
             bg = esper.component_for_entity(self.map_entity, MapBackground)
+            img_w, img_h = image.get_size()
+            scaled_image = pygame.transform.smoothscale(
+                image, (int(img_w * self.zoom), int(img_h * self.zoom)))
+            bg.image = scaled_image
             bg.image_path = image_path
-            bg.image = image
+            bg.zoom = self.zoom
+
+            bg.camera_pos_x = self.camera_pos_x
+            bg.camera_pos_y = self.camera_pos_y
+            bg.offset_x = 0
+            bg.offset_y = 0
 
             # Calculate offset to center the image
             screen_w, screen_h = self.screen.get_size()
-            img_w, img_h = image.get_size()
-            bg.offset_x = (screen_w - img_w) // 2
-            bg.offset_y = (screen_h - img_h) // 2
-            self.map_offset_x = bg.offset_x
-            self.map_offset_y = bg.offset_y
+            # bg.offset_x = (screen_w - img_w) // 2
+            # bg.offset_y = (screen_h - img_h) // 2
+            # self.map_offset_x = bg.offset_x
+            # self.map_offset_y = bg.offset_y
         except Exception as e:
             print(f"Failed to load map image: {e}")
 
@@ -86,6 +97,8 @@ class MapScreen:
             road_layer.strokes = strokes
             road_layer.color = color
             road_layer.alpha = alpha
+            road_layer.zoom = self.zoom
+
             road_layer.offset_x = self.map_offset_x
             road_layer.offset_y = self.map_offset_y
 
@@ -95,12 +108,17 @@ class MapScreen:
                 return
 
             img_w, img_h = bg.image.get_size()
+            # Use ORIGINAL map size, not zoomed size
+            # Need to store original size in MapBackground or calculate from zoom
+            original_w = int(bg.image.get_width() / self.zoom)
+            original_h = int(bg.image.get_height() / self.zoom)
 
             # Create road display surface with transparency
-            road_surface = pygame.Surface((img_w, img_h), pygame.SRCALPHA)
+            road_surface = pygame.Surface(
+                (original_w, original_h), pygame.SRCALPHA)
 
             # Create road mask (white = road, black = no road)
-            road_mask = pygame.Surface((img_w, img_h))
+            road_mask = pygame.Surface((original_w, original_h))
             road_mask.fill((0, 0, 0))
 
             # Draw all strokes
@@ -111,17 +129,26 @@ class MapScreen:
                 if len(points) < 2:
                     continue
 
+                # apply zoom
+                scaled_points = [
+                    (int(point[0]), int(point[1])) for point in points]
+                scaled_width = int(width)
+
                 # Draw on display surface
-                for i, point in enumerate(points):
-                    pygame.draw.circle(road_surface, color, point, width // 2)
+                for i, point in enumerate(scaled_points):
+                    pygame.draw.circle(road_surface, color,
+                                       point, scaled_width // 2)
                     if i > 0:
-                        pygame.draw.line(road_surface, color, points[i - 1], point, width)
+                        pygame.draw.line(
+                            road_surface, color, scaled_points[i - 1], point, scaled_width)
 
                 # Draw on mask (white)
-                for i, point in enumerate(points):
-                    pygame.draw.circle(road_mask, (255, 255, 255), point, width // 2)
+                for i, point in enumerate(scaled_points):
+                    pygame.draw.circle(
+                        road_mask, (255, 255, 255), point, scaled_width // 2)
                     if i > 0:
-                        pygame.draw.line(road_mask, (255, 255, 255), points[i - 1], point, width)
+                        pygame.draw.line(
+                            road_mask, (255, 255, 255), scaled_points[i - 1], point, scaled_width)
 
             road_surface.set_alpha(alpha)
             road_layer.road_surface = road_surface
@@ -192,6 +219,17 @@ class MapScreen:
             pos = esper.component_for_entity(self.player_entity, Position)
             pos.x = x
             pos.y = y
+            # Sync camera immediately
+            self.camera_pos_x = x
+            self.camera_pos_y = y
+            if self.map_entity is not None:
+                bg = esper.component_for_entity(self.map_entity, MapBackground)
+                bg.camera_pos_x = x
+                bg.camera_pos_y = y
+                road_layer = esper.component_for_entity(
+                    self.map_entity, RoadLayer)
+                road_layer.camera_pos_x = x
+                road_layer.camera_pos_y = y
 
     def move_player_toward(self, target_x: float, target_y: float, speed: float = 500.0):
         """Start moving the player toward a target position"""
@@ -205,7 +243,9 @@ class MapScreen:
         dy = target_y - pos.y
         dist_squared = dx * dx + dy * dy
 
-        if dist_squared < 64:
+        if dist_squared < 60:
+            pos.x = target_x
+            pos.y = target_y
             vel.vx = 0.0
             vel.vy = 0.0
             return
@@ -242,8 +282,17 @@ class MapScreen:
 
     def update(self, dt: float):
         """Update the map (process ECS systems)"""
-        esper.switch_world(self.world_name)
         esper.process(dt)
+        if self.player_entity is not None and self.map_entity is not None:
+            self.camera_pos_x, self.camera_pos_y = self.get_player_position()
+            bg = esper.component_for_entity(self.map_entity, MapBackground)
+            bg.camera_pos_x = self.camera_pos_x
+            bg.camera_pos_y = self.camera_pos_y
+            road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
+            road_layer.camera_pos_x = self.camera_pos_x
+            road_layer.camera_pos_y = self.camera_pos_y
+
+        esper.switch_world(self.world_name)
 
     def enter(self):
         """Called when entering this screen"""

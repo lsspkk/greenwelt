@@ -18,25 +18,43 @@ class MapRenderSystem(esper.Processor):
         # Draw map background image centered
         for ent, (bg,) in esper.get_components(MapBackground):
             if bg.image is not None:
-                self.screen.blit(bg.image, (bg.offset_x, bg.offset_y))
+                screen_w, screen_h = self.screen.get_size()
+                draw_x = (0 - bg.camera_pos_x) * bg.zoom + screen_w // 2
+                draw_y = (0 - bg.camera_pos_y) * bg.zoom + screen_h // 2
+
+                self.screen.blit(bg.image, (draw_x, draw_y))
 
         # Draw roads on top of background
         for ent, (road,) in esper.get_components(RoadLayer):
             if road.road_surface is not None:
-                self.screen.blit(road.road_surface, (road.offset_x, road.offset_y))
+
+                scaled_road_surface = pygame.transform.smoothscale(
+                    road.road_surface,
+                    (int(road.road_surface.get_width() * bg.zoom),
+                     int(road.road_surface.get_height() * bg.zoom))
+                )
+                draw_x = (0 - bg.camera_pos_x) * bg.zoom + screen_w // 2
+                draw_y = (0 - bg.camera_pos_y) * bg.zoom + screen_h // 2
+                self.screen.blit(scaled_road_surface, (draw_x, draw_y))
 
         # Draw rectangles
         for ent, (pos, rect) in esper.get_components(Position, RectangleRenderable):
-            draw_rect = pygame.Rect(int(pos.x), int(pos.y), rect.width, rect.height)
-            pygame.draw.rect(self.screen, rect.color, draw_rect, border_radius=16)
+            draw_rect = pygame.Rect(int(pos.x), int(
+                pos.y), rect.width, rect.height)
+            pygame.draw.rect(self.screen, rect.color,
+                             draw_rect, border_radius=16)
 
         # Draw dots (player, markers)
         for ent, (pos, dot) in esper.get_components(Position, DotRenderable):
+            # Transform world position to screen position
+            screen_x = int((pos.x - bg.camera_pos_x) * bg.zoom + screen_w // 2)
+            screen_y = int((pos.y - bg.camera_pos_y) * bg.zoom + screen_h // 2)
+            radius = int(dot.radius * bg.zoom)
             pygame.draw.circle(
                 self.screen,
                 dot.color,
-                (int(pos.x), int(pos.y)),
-                dot.radius
+                (screen_x, screen_y),
+                radius
             )
 
 
