@@ -221,38 +221,47 @@ class MapScreen:
                 road_layer.camera_pos_x = x
                 road_layer.camera_pos_y = y
 
-    def move_player_toward(self, target_x: float, target_y: float, speed: float = 500.0):
-        """Move the player toward a target position, checking collision directly."""
+    def move_player_toward(self, target_x: float, target_y: float, speed: float = 500.0, dt: float = 1/60):
+        """Move the player a single step toward the target, checking collision."""
         if self.player_entity is None:
             return
-
         pos = esper.component_for_entity(self.player_entity, Position)
         vel = esper.component_for_entity(self.player_entity, Velocity)
         road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
-
         dx = target_x - pos.x
         dy = target_y - pos.y
         dist_squared = dx * dx + dy * dy
         dist = dist_squared ** 0.5
-
-        # Always check the path for collision, even for small moves
-        steps = int(max(abs(dx), abs(dy)) // 2) + 1
+        if dist < 1.0:
+            pos.x = target_x
+            pos.y = target_y
+            vel.vx = 0.0
+            vel.vy = 0.0
+            return
+        # Calculate step
+        step = min(speed * dt, dist)
+        step_x = dx / dist * step
+        step_y = dy / dist * step
+        next_x = pos.x + step_x
+        next_y = pos.y + step_y
+        # Check collision along the step
+        steps = int(max(abs(step_x), abs(step_y)) // 2) + 1
         collision = False
-        for i in range(steps + 1):
-            t = i / steps if steps > 0 else 0
-            x = pos.x + dx * t
-            y = pos.y + dy * t
+        for i in range(1, steps + 1):
+            t = i / steps
+            x = pos.x + step_x * t
+            y = pos.y + step_y * t
             if not road_layer.is_on_road(x, y):
                 collision = True
                 break
-
         if not collision:
-            pos.x = target_x
-            pos.y = target_y
-        # Always stop velocity (no continuous movement system)
-        vel.vx = 0.0
-        vel.vy = 0.0
-        return
+            pos.x = next_x
+            pos.y = next_y
+            vel.vx = step_x / dt
+            vel.vy = step_y / dt
+        else:
+            vel.vx = 0.0
+            vel.vy = 0.0
 
     def stop_player(self):
         """Stop the player's movement"""
