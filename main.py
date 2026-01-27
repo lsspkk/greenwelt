@@ -1,4 +1,11 @@
 # Plant Courier - Main Entry Point
+from screens.dialog.ui_renderer import UIRenderer
+from screens.dialog.base_dialog import BaseDialog
+from screens.dialog.components import Button, DialogChoice
+from screens.map import MapScreen
+from shared.debug.debug_overlay import DebugOverlay
+from shared.debug.debug_log import debug
+from shared.input.input_manager import InputManager
 import asyncio
 import pygame
 import sys
@@ -9,13 +16,15 @@ try:
 except ImportError:
     js = None
 
+
 def toggle_fullscreen_browser():
     # Only works in browser (Pyodide/WASM)
     if js is not None:
         try:
             canvas = js.document.getElementById("canvas")
             js.console.log(f"Canvas element: {canvas}")
-            js.console.log(f"Current fullscreenElement: {js.document.fullscreenElement}")
+            js.console.log(
+                f"Current fullscreenElement: {js.document.fullscreenElement}")
             if js.document.fullscreenElement:
                 js.console.log("Exiting fullscreen...")
                 js.document.exitFullscreen()
@@ -31,7 +40,8 @@ def toggle_fullscreen_browser():
                     js.console.log(f"Canvas fullscreen error: {e_canvas}")
                     # Try document.body
                     try:
-                        js.console.log("Requesting fullscreen on document.body...")
+                        js.console.log(
+                            "Requesting fullscreen on document.body...")
                         promise = js.document.body.requestFullscreen()
                         if hasattr(promise, "then"):
                             promise.then(lambda _: js.console.log("Body fullscreen success"),
@@ -40,17 +50,20 @@ def toggle_fullscreen_browser():
                         js.console.log(f"Body fullscreen error: {e_body}")
                         # Try document.documentElement
                         try:
-                            js.console.log("Requesting fullscreen on documentElement...")
+                            js.console.log(
+                                "Requesting fullscreen on documentElement...")
                             promise = js.document.documentElement.requestFullscreen()
                             if hasattr(promise, "then"):
                                 promise.then(lambda _: js.console.log("DocumentElement fullscreen success"),
                                              lambda err: js.console.log(f"DocumentElement fullscreen error: {err}"))
                         except Exception as e_doc:
-                            js.console.log(f"DocumentElement fullscreen error: {e_doc}")
+                            js.console.log(
+                                f"DocumentElement fullscreen error: {e_doc}")
         except Exception as e:
             js.console.log(f"Fullscreen error: {e}")
             import traceback
             js.console.log(traceback.format_exc())
+
 
 def toggle_fullscreen_desktop():
     try:
@@ -60,16 +73,10 @@ def toggle_fullscreen_desktop():
     except Exception:
         pygame.display.toggle_fullscreen()
 
+
 # Import from shared modules
-from shared.input.input_manager import InputManager
-from shared.debug.debug_log import debug
-from shared.debug.debug_overlay import DebugOverlay
 
 # Import screens
-from screens.map import MapScreen
-from screens.dialog.components import Button, DialogChoice
-from screens.dialog.base_dialog import BaseDialog
-from screens.dialog.ui_renderer import UIRenderer
 
 
 async def main():
@@ -84,7 +91,8 @@ async def main():
 
     # Fullscreen button (bottom right corner, 1.5x size)
     fullscreen_size = int(40 * 1.5)  # 60
-    fullscreen_rect = pygame.Rect(1920 - fullscreen_size - 10, 1080 - fullscreen_size - 10, fullscreen_size, fullscreen_size)
+    fullscreen_rect = pygame.Rect(
+        1920 - fullscreen_size - 10, 1080 - fullscreen_size - 10, fullscreen_size, fullscreen_size)
     fullscreen_icon_color = (40, 80, 120)
 
     # Initialize shared systems
@@ -93,7 +101,8 @@ async def main():
     debug_overlay = DebugOverlay(screen)
 
     # Log startup info
-    debug.info(f"Game started - Platform: {'WASM' if debug.is_wasm else 'Native'}")
+    debug.info(
+        f"Game started - Platform: {'WASM' if debug.is_wasm else 'Native'}")
     debug.info(f"Python version: {sys.version.split()[0]}")
     debug.info(f"Pygame version: {pygame.version.ver}")
     debug.info(f"Screen size: {screen.get_size()}")
@@ -150,8 +159,6 @@ async def main():
 
         input_mgr.process_events(events)
 
-
-
         # If overlay is open, handle its input
         if debug.overlay_visible:
             if debug_overlay.draw_overlay(input_mgr):
@@ -163,8 +170,16 @@ async def main():
                 if not input_mgr.is_point_in_rect(input_mgr.click_pos, dialog_btn.rect):
                     if not test_dialog.visible:
                         last_click = input_mgr.click_pos
-                        target = input_mgr.click_pos
-                        debug.debug(f"Map click at {input_mgr.click_pos}")
+                        mouse_x, mouse_y = input_mgr.click_pos
+                        # use current map camera position and zoom to convert screen to world coords
+                        world_x = (mouse_x - screen.get_width() // 2) / \
+                            current_map.zoom + current_map.camera_pos_x
+                        world_y = (mouse_y - screen.get_height() // 2) / \
+                            current_map.zoom + current_map.camera_pos_y
+
+                        target = (world_x, world_y)
+                        debug.debug(
+                            f"Map click at {input_mgr.click_pos}, target set to ({world_x:.2f}, {world_y:.2f})")
 
         # Move player toward target
         if target:
@@ -180,10 +195,10 @@ async def main():
         if not debug.overlay_visible:
             current_map.update(dt)
 
-
         # Draw exit button (always visible)
         if not debug.is_wasm:  # Only show exit button in desktop/native
-            exit_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, exit_rect)
+            exit_hover = input_mgr.is_point_in_rect(
+                input_mgr.touch_pos, exit_rect)
             exit_color = (80, 40, 40) if exit_hover else (50, 30, 30)
             pygame.draw.rect(screen, exit_color, exit_rect, border_radius=6)
             exit_text = exit_font.render("X", True, (180, 180, 180))
@@ -193,21 +208,29 @@ async def main():
                 running = False
 
         # Draw fullscreen button (bottom right)
-        fullscreen_hover = input_mgr.is_point_in_rect(input_mgr.touch_pos, fullscreen_rect)
+        fullscreen_hover = input_mgr.is_point_in_rect(
+            input_mgr.touch_pos, fullscreen_rect)
         fs_color = (60, 120, 180) if fullscreen_hover else fullscreen_icon_color
         pygame.draw.rect(screen, fs_color, fullscreen_rect, border_radius=6)
         # Draw a simple rectangle icon for fullscreen
-        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(-int(fullscreen_size * 0.35), -int(fullscreen_size * 0.35)), 2, border_radius=3)
+        pygame.draw.rect(screen, (200, 200, 200), fullscreen_rect.inflate(
+            -int(fullscreen_size * 0.35), -int(fullscreen_size * 0.35)), 2, border_radius=3)
         # Optionally, add arrows to indicate fullscreen
         pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.left + int(fullscreen_size * 0.17), fullscreen_rect.top + int(fullscreen_size * 0.17)),
-            (fullscreen_rect.left + int(fullscreen_size * 0.3), fullscreen_rect.top + int(fullscreen_size * 0.17)),
-            (fullscreen_rect.left + int(fullscreen_size * 0.17), fullscreen_rect.top + int(fullscreen_size * 0.3))
+            (fullscreen_rect.left + int(fullscreen_size * 0.17),
+             fullscreen_rect.top + int(fullscreen_size * 0.17)),
+            (fullscreen_rect.left + int(fullscreen_size * 0.3),
+             fullscreen_rect.top + int(fullscreen_size * 0.17)),
+            (fullscreen_rect.left + int(fullscreen_size * 0.17),
+             fullscreen_rect.top + int(fullscreen_size * 0.3))
         ])
         pygame.draw.polygon(screen, (200, 200, 200), [
-            (fullscreen_rect.right - int(fullscreen_size * 0.17), fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
-            (fullscreen_rect.right - int(fullscreen_size * 0.3), fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
-            (fullscreen_rect.right - int(fullscreen_size * 0.17), fullscreen_rect.bottom - int(fullscreen_size * 0.3))
+            (fullscreen_rect.right - int(fullscreen_size * 0.17),
+             fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
+            (fullscreen_rect.right - int(fullscreen_size * 0.3),
+             fullscreen_rect.bottom - int(fullscreen_size * 0.17)),
+            (fullscreen_rect.right - int(fullscreen_size * 0.17),
+             fullscreen_rect.bottom - int(fullscreen_size * 0.3))
         ])
         # Handle fullscreen toggle
         if input_mgr.clicked_in_rect(fullscreen_rect):
@@ -221,11 +244,13 @@ async def main():
         if not debug.overlay_visible:
             if ui.draw_button(dialog_btn, input_mgr):
                 test_dialog.toggle()
-                debug.info(f"Dialog {'opened' if test_dialog.visible else 'closed'}")
+                debug.info(
+                    f"Dialog {'opened' if test_dialog.visible else 'closed'}")
 
             choice = ui.draw_dialog(test_dialog, input_mgr)
             if choice is not None:
-                debug.info(f"Dialog choice selected: {choice + 1} - {test_dialog.choices[choice].text}")
+                debug.info(
+                    f"Dialog choice selected: {choice + 1} - {test_dialog.choices[choice].text}")
                 message = f"Selected: {test_dialog.choices[choice].text}"
                 message_timer = 2.0
                 test_dialog.hide()
@@ -253,19 +278,23 @@ async def main():
                 type_text = f"({type_label})"
 
                 name_surf = ui.font.render(info_text, True, (255, 255, 255))
-                type_surf = ui.small_font.render(type_text, True, (180, 180, 180))
+                type_surf = ui.small_font.render(
+                    type_text, True, (180, 180, 180))
 
                 box_w = max(name_surf.get_width(), type_surf.get_width()) + 40
                 box_h = 80
                 screen_w, screen_h = screen.get_size()
                 # Move box left to avoid fullscreen button
-                box_x = screen_w - box_w - fullscreen_size - 30  # 30px padding after fullscreen button
+                box_x = screen_w - box_w - fullscreen_size - \
+                    30  # 30px padding after fullscreen button
                 box_y = screen_h - box_h - 30
 
                 # Background box
                 box_rect = pygame.Rect(box_x, box_y, box_w, box_h)
-                pygame.draw.rect(screen, (30, 40, 50), box_rect, border_radius=10)
-                pygame.draw.rect(screen, (80, 120, 160), box_rect, 2, border_radius=10)
+                pygame.draw.rect(screen, (30, 40, 50),
+                                 box_rect, border_radius=10)
+                pygame.draw.rect(screen, (80, 120, 160),
+                                 box_rect, 2, border_radius=10)
 
                 # Text
                 screen.blit(name_surf, (box_x + 20, box_y + 15))
@@ -275,11 +304,11 @@ async def main():
                 msg_surf = ui.font.render(message, True, (255, 255, 100))
                 screen.blit(msg_surf, (200, 30))
 
-
         # Draw debug icon last so it's always on top
         if debug_overlay.draw_icon(input_mgr):
             debug.overlay_visible = not debug.overlay_visible
-            debug.info(f"Debug overlay {'opened' if debug.overlay_visible else 'closed'}")
+            debug.info(
+                f"Debug overlay {'opened' if debug.overlay_visible else 'closed'}")
 
         # Log periodic stats
         if frame_count % 300 == 0:

@@ -22,7 +22,7 @@ Implement a 2x zoom for the map and ensure the player remains centered on the sc
 ## Implementation Steps
 
 ### 1. Update `MapScreen` (Logic & State)
-- Add state variables: `zoom: float = 2.0`, `camera_pos: List[float] = [0, 0]`.
+- Add state variables: `zoom: float = 2.0`, `camera_pos_x: 0, camera_pos_y: 0`.
 - Modify `load_map_image` and `load_roads`:
   - **Do NOT** calculate or store static centering offsets (`map_offset_x/y`). Set them to 0.
   - Optionally pre-scale images if performance requires, but for now, we will handle scaling in render.
