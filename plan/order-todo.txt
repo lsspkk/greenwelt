@@ -1,0 +1,770 @@
+================================================================================
+ORDER SYSTEM UI - CODING TODO
+================================================================================
+
+This is a step-by-step guide to implement the order system UI.
+Follow milestones in order. Each builds on the previous.
+
+
+================================================================================
+MILESTONE 1: PHONE ICONS ON MAP
+================================================================================
+
+Goal: Show two phone icons on the map screen.
+- Incoming orders phone (with alert badge) - only when visible orders exist
+- Main phone (always visible) - for accepted orders
+
+
+-----------------------------------------
+1.1 Load phone icon images
+-----------------------------------------
+
+In map_ui.py __init__, load the phone icons:
+
+    def __init__(self, screen: pygame.Surface):
+        self.screen = screen
+
+        # Load phone icons (80x80 pixels)
+        self.phone_icon = pygame.image.load("assets/ui/phone.png").convert_alpha()
+        self.phone_alert_icon = pygame.image.load("assets/ui/phone_alert.png").convert_alpha()
+
+        # Icon positions (top-left corner of each icon)
+        self.main_phone_rect = pygame.Rect(30, 30, 80, 80)
+        self.alert_phone_rect = pygame.Rect(130, 30, 80, 80)
+
+Note: You need to create these PNG images first!
+Simple approach: Draw rectangles with pygame if no images yet.
+
+
+-----------------------------------------
+1.2 Pass order_manager to MapUI
+-----------------------------------------
+
+MapUI needs access to order state. Update map_ui.py:
+
+    def __init__(self, screen: pygame.Surface, order_manager):
+        self.screen = screen
+        self.order_manager = order_manager
+        # ... rest of init
+
+Update main.py where MapUI is created:
+
+    from screens.map.order_system import MapOrderManager
+
+    # When initializing map:
+    order_manager = MapOrderManager()
+    order_manager.load_orders(orders_data)  # Load from JSON
+    map_ui = MapUI(screen, order_manager)
+
+
+-----------------------------------------
+1.3 Draw phone icons conditionally
+-----------------------------------------
+
+In map_ui.py, add method to draw phone icons:
+
+    def _draw_phone_icons(self, input_mgr):
+        """Draw phone icons and handle clicks. Returns action string or None."""
+
+        # Always draw main phone
+        self.screen.blit(self.phone_icon, self.main_phone_rect.topleft)
+
+        # Draw accepted orders count badge
+        accepted_count = self.order_manager.get_accepted_count()
+        if accepted_count > 0:
+            self._draw_badge(self.main_phone_rect, accepted_count)
+
+        # Only draw alert phone if there are visible orders
+        visible_count = self.order_manager.get_visible_count()
+        if visible_count > 0:
+            self.screen.blit(self.phone_alert_icon, self.alert_phone_rect.topleft)
+            self._draw_badge(self.alert_phone_rect, visible_count)
+
+            # Check for click on alert phone
+            if input_mgr.clicked_in_rect(self.alert_phone_rect):
+                return "open_incoming_orders"
+
+        # Check for click on main phone
+        if input_mgr.clicked_in_rect(self.main_phone_rect):
+            return "open_main_phone"
+
+        return None
+
+
+-----------------------------------------
+1.4 Draw notification badge
+-----------------------------------------
+
+Simple badge drawing (circle with number):
+
+    def _draw_badge(self, icon_rect: pygame.Rect, count: int):
+        """Draw a red notification badge on top-right of icon."""
+        badge_radius = 16
+        badge_x = icon_rect.right - badge_radius
+        badge_y = icon_rect.top + badge_radius
+
+        # Red circle
+        pygame.draw.circle(self.screen, (220, 60, 60), (badge_x, badge_y), badge_radius)
+
+        # White text
+        badge_text = self.small_font.render(str(count), True, (255, 255, 255))
+        text_rect = badge_text.get_rect(center=(badge_x, badge_y))
+        self.screen.blit(badge_text, text_rect)
+
+
+-----------------------------------------
+1.5 Update draw() method
+-----------------------------------------
+
+Call _draw_phone_icons from the main draw method:
+
+    def draw(self, map_screen, input_mgr) -> Optional[str]:
+        """Draw all map UI elements. Returns action string if button clicked."""
+        action = None
+
+        # Draw phone icons
+        phone_action = self._draw_phone_icons(input_mgr)
+        if phone_action:
+            action = phone_action
+
+        # Draw location indicator
+        self._draw_location_indicator(map_screen)
+
+        return action
+
+
+-----------------------------------------
+1.6 Handle actions in main.py
+-----------------------------------------
+
+In main.py, handle the returned actions:
+
+    # In the game loop, after map_ui.draw():
+    ui_action = map_ui.draw(current_map, input_mgr)
+
+    if ui_action == "open_incoming_orders":
+        # TODO: Open incoming orders phone screen
+        debug.info("Opening incoming orders")
+    elif ui_action == "open_main_phone":
+        # TODO: Open main phone screen
+        debug.info("Opening main phone")
+
+
+================================================================================
+MILESTONE 2: PHONE SCREEN (screens/dialog/phone.py)
+================================================================================
+
+Goal: Create a phone screen that can show order lists.
+The phone is a dialog that overlays the map.
+
+
+-----------------------------------------
+2.1 Create phone.py file structure
+-----------------------------------------
+
+Create file: screens/dialog/phone.py
+
+    import pygame
+    from typing import Optional, List
+    from shared.shared_components import Order, OrderState
+
+
+    class PhoneScreen:
+        """
+        Phone UI overlay for viewing orders.
+
+        Can be opened in two modes:
+        - "incoming": Show visible incoming orders with accept buttons
+        - "accepted": Show accepted orders and inventory
+        """
+
+        def __init__(self, screen: pygame.Surface):
+            self.screen = screen
+            self.visible = False
+            self.mode = "accepted"  # "incoming" or "accepted"
+
+            # Phone frame dimensions (centered on screen)
+            screen_w, screen_h = screen.get_size()
+            phone_w = 600
+            phone_h = 800
+            self.phone_rect = pygame.Rect(
+                (screen_w - phone_w) // 2,
+                (screen_h - phone_h) // 2,
+                phone_w,
+                phone_h
+            )
+
+            # Fonts
+            self.title_font = pygame.font.Font(None, 48)
+            self.font = pygame.font.Font(None, 36)
+            self.small_font = pygame.font.Font(None, 28)
+
+            # Colors
+            self.bg_color = (40, 44, 52)
+            self.header_color = (60, 64, 72)
+            self.text_color = (255, 255, 255)
+            self.accent_color = (100, 180, 100)
+
+        def open(self, mode: str = "accepted"):
+            """Open the phone screen."""
+            self.mode = mode
+            self.visible = True
+
+        def close(self):
+            """Close the phone screen."""
+            self.visible = False
+
+        def handle_input(self, input_mgr, order_manager) -> Optional[str]:
+            """
+            Handle input while phone is open.
+            Returns action string or None.
+            """
+            if not self.visible:
+                return None
+
+            # Close button (top right of phone)
+            close_rect = pygame.Rect(
+                self.phone_rect.right - 50,
+                self.phone_rect.top + 10,
+                40, 40
+            )
+            if input_mgr.clicked_in_rect(close_rect):
+                self.close()
+                return "phone_closed"
+
+            # TODO: Handle order item clicks
+            # TODO: Handle accept button clicks
+
+            return None
+
+        def draw(self, order_manager):
+            """Draw the phone screen."""
+            if not self.visible:
+                return
+
+            # Dim background
+            dim_surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+            dim_surface.fill((0, 0, 0, 150))
+            self.screen.blit(dim_surface, (0, 0))
+
+            # Phone background
+            pygame.draw.rect(self.screen, self.bg_color, self.phone_rect, border_radius=20)
+            pygame.draw.rect(self.screen, self.header_color, self.phone_rect, 3, border_radius=20)
+
+            # Header
+            header_rect = pygame.Rect(
+                self.phone_rect.x,
+                self.phone_rect.y,
+                self.phone_rect.width,
+                60
+            )
+            pygame.draw.rect(self.screen, self.header_color, header_rect,
+                           border_top_left_radius=20, border_top_right_radius=20)
+
+            # Title
+            if self.mode == "incoming":
+                title = "Saapuvat tilaukset"
+                self._draw_incoming_orders(order_manager)
+            else:
+                title = "Puhelin"
+                self._draw_accepted_orders(order_manager)
+
+            title_surf = self.title_font.render(title, True, self.text_color)
+            self.screen.blit(title_surf, (self.phone_rect.x + 20, self.phone_rect.y + 15))
+
+            # Close button (X)
+            close_rect = pygame.Rect(self.phone_rect.right - 50, self.phone_rect.top + 10, 40, 40)
+            pygame.draw.rect(self.screen, (80, 40, 40), close_rect, border_radius=5)
+            close_text = self.font.render("X", True, (200, 200, 200))
+            close_text_rect = close_text.get_rect(center=close_rect.center)
+            self.screen.blit(close_text, close_text_rect)
+
+        def _draw_incoming_orders(self, order_manager):
+            """Draw list of visible incoming orders."""
+            orders = order_manager.visible_orders
+            y = self.phone_rect.y + 80
+
+            if not orders:
+                no_orders = self.font.render("Ei uusia tilauksia", True, (150, 150, 150))
+                self.screen.blit(no_orders, (self.phone_rect.x + 20, y))
+                return
+
+            for order in orders:
+                self._draw_order_card(order, y, show_timer=True)
+                y += 120
+
+        def _draw_accepted_orders(self, order_manager):
+            """Draw list of accepted orders."""
+            orders = order_manager.accepted_orders
+            y = self.phone_rect.y + 80
+
+            if not orders:
+                no_orders = self.font.render("Ei hyväksyttyjä tilauksia", True, (150, 150, 150))
+                self.screen.blit(no_orders, (self.phone_rect.x + 20, y))
+                return
+
+            for order in orders:
+                self._draw_order_card(order, y, show_timer=False)
+                y += 120
+
+        def _draw_order_card(self, order: Order, y: int, show_timer: bool):
+            """Draw a single order card."""
+            card_rect = pygame.Rect(
+                self.phone_rect.x + 15,
+                y,
+                self.phone_rect.width - 30,
+                100
+            )
+
+            # Card background
+            pygame.draw.rect(self.screen, (50, 54, 62), card_rect, border_radius=10)
+
+            # Customer name
+            name_surf = self.font.render(order.customer_location, True, self.text_color)
+            self.screen.blit(name_surf, (card_rect.x + 15, card_rect.y + 10))
+
+            # Plant count
+            plant_count = sum(p.amount for p in order.plants)
+            plants_text = f"{plant_count} kasvia"
+            plants_surf = self.small_font.render(plants_text, True, (180, 180, 180))
+            self.screen.blit(plants_surf, (card_rect.x + 15, card_rect.y + 45))
+
+            # Timer bar (for incoming orders)
+            if show_timer and order.countdown_to_available > 0:
+                timer_width = 200
+                timer_height = 8
+                timer_x = card_rect.x + 15
+                timer_y = card_rect.y + 75
+
+                # Background bar
+                pygame.draw.rect(self.screen, (30, 30, 30),
+                               (timer_x, timer_y, timer_width, timer_height),
+                               border_radius=4)
+
+                # Fill bar (based on remaining time)
+                # Assume max accept_time is stored or use a default
+                max_time = 15.0  # Could get this from order_manager.accept_time
+                fill_ratio = order.countdown_to_available / max_time
+                fill_width = int(timer_width * fill_ratio)
+
+                # Color changes from green to red
+                if fill_ratio > 0.5:
+                    bar_color = (100, 180, 100)
+                elif fill_ratio > 0.25:
+                    bar_color = (200, 180, 50)
+                else:
+                    bar_color = (200, 80, 80)
+
+                pygame.draw.rect(self.screen, bar_color,
+                               (timer_x, timer_y, fill_width, timer_height),
+                               border_radius=4)
+
+
+-----------------------------------------
+2.2 Integrate phone with map_ui.py
+-----------------------------------------
+
+Update map_ui.py to create and manage the phone:
+
+    from screens.dialog.phone import PhoneScreen
+
+    class MapUI:
+        def __init__(self, screen: pygame.Surface, order_manager):
+            self.screen = screen
+            self.order_manager = order_manager
+
+            # Phone screen overlay
+            self.phone = PhoneScreen(screen)
+
+            # ... rest of init
+
+        def draw(self, map_screen, input_mgr) -> Optional[str]:
+            action = None
+
+            # If phone is open, handle it first (blocks other UI)
+            if self.phone.visible:
+                phone_action = self.phone.handle_input(input_mgr, self.order_manager)
+                self.phone.draw(self.order_manager)
+                return phone_action
+
+            # Normal UI when phone is closed
+            phone_action = self._draw_phone_icons(input_mgr)
+            if phone_action == "open_incoming_orders":
+                self.phone.open("incoming")
+            elif phone_action == "open_main_phone":
+                self.phone.open("accepted")
+
+            self._draw_location_indicator(map_screen)
+
+            return action
+
+
+================================================================================
+MILESTONE 3: ACCEPT ORDER BUTTON
+================================================================================
+
+Goal: Add "Hyväksy" (Accept) button to incoming order cards.
+
+
+-----------------------------------------
+3.1 Track clickable areas
+-----------------------------------------
+
+In PhoneScreen, track button rects:
+
+    def __init__(self, screen):
+        # ... existing code ...
+        self.accept_buttons: List[tuple[pygame.Rect, Order]] = []
+
+
+-----------------------------------------
+3.2 Draw accept button on cards
+-----------------------------------------
+
+Update _draw_order_card to draw button and track rect:
+
+    def _draw_order_card(self, order: Order, y: int, show_timer: bool):
+        # ... existing card drawing ...
+
+        # Accept button (only for incoming orders)
+        if show_timer:
+            btn_rect = pygame.Rect(
+                card_rect.right - 110,
+                card_rect.y + 30,
+                90, 40
+            )
+            pygame.draw.rect(self.screen, self.accent_color, btn_rect, border_radius=8)
+            btn_text = self.small_font.render("Hyväksy", True, (255, 255, 255))
+            btn_text_rect = btn_text.get_rect(center=btn_rect.center)
+            self.screen.blit(btn_text, btn_text_rect)
+
+            # Track for click detection
+            self.accept_buttons.append((btn_rect, order))
+
+
+-----------------------------------------
+3.3 Handle accept button clicks
+-----------------------------------------
+
+Update handle_input to check accept buttons:
+
+    def handle_input(self, input_mgr, order_manager) -> Optional[str]:
+        if not self.visible:
+            return None
+
+        # Clear tracked buttons
+        self.accept_buttons = []
+
+        # ... close button check ...
+
+        # Check accept button clicks
+        for btn_rect, order in self.accept_buttons:
+            if input_mgr.clicked_in_rect(btn_rect):
+                order_manager.accept_order(order)
+                return "order_accepted"
+
+        return None
+
+Note: Button rects are populated during draw(), so handle_input must
+be called AFTER draw() in the same frame, OR store rects from previous frame.
+
+Better pattern - check clicks during draw:
+
+    def _draw_order_card(self, order: Order, y: int, show_timer: bool, input_mgr):
+        # ... draw button ...
+        if show_timer:
+            # ... draw button ...
+            if input_mgr.clicked_in_rect(btn_rect):
+                self.pending_accept = order
+
+
+================================================================================
+MILESTONE 4: REGISTER OrderSystem WITH ECS
+================================================================================
+
+Goal: Make OrderSystem process every frame to update timers.
+
+
+-----------------------------------------
+4.1 Create order_manager in MapScreen
+-----------------------------------------
+
+Update screens/map/map_screen.py:
+
+    from .order_system import MapOrderManager, OrderSystem
+
+    class MapScreen:
+        def __init__(self, screen, map_name):
+            # ... existing code ...
+            self.order_manager = None
+
+        def initialize(self):
+            # ... existing ECS setup ...
+
+            # Create order manager
+            self.order_manager = MapOrderManager()
+
+            # Add order system to ECS
+            esper.add_processor(OrderSystem(self.order_manager), priority=2)
+
+        def load_orders(self, json_path: str):
+            """Load orders from JSON file."""
+            import json
+            with open(json_path, "r") as f:
+                orders_data = json.load(f)
+            self.order_manager.load_orders(orders_data)
+
+
+-----------------------------------------
+4.2 Update main.py to load orders
+-----------------------------------------
+
+In main.py when initializing map:
+
+    current_map = MapScreen(screen, "world")
+    current_map.initialize()
+    current_map.load_map_image("assets/map1.png")
+    current_map.load_roads("data/map1_roads.json")
+    current_map.load_locations("data/map1_locations.json")
+    current_map.load_orders("data/map1_orders.json")  # NEW
+
+    # Pass order_manager to MapUI
+    map_ui = MapUI(screen, current_map.order_manager)
+
+
+================================================================================
+MILESTONE 5: ORDER DATA FILE
+================================================================================
+
+Goal: Create test order data to verify the system works.
+
+
+-----------------------------------------
+5.1 Create data/map1_orders.json
+-----------------------------------------
+
+    {
+        "Hiiritoimisto": [
+            {
+                "order_id": "hiiri_001",
+                "send_time": 2.0,
+                "customer_email": "toimisto@hiiri.fi",
+                "plants": [
+                    {
+                        "filename": "kultaköynnös-01.png",
+                        "name_fi": "Kultaköynnös",
+                        "name_en": "Pothos",
+                        "amount": 2
+                    }
+                ]
+            },
+            {
+                "order_id": "hiiri_002",
+                "send_time": 5.0,
+                "customer_email": "toimisto@hiiri.fi",
+                "plants": [
+                    {
+                        "filename": "peikonlehti-01.png",
+                        "name_fi": "Peikonlehti",
+                        "name_en": "Monstera",
+                        "amount": 1
+                    }
+                ]
+            }
+        ],
+        "Ilves toimisto": [
+            {
+                "order_id": "ilves_001",
+                "send_time": 3.0,
+                "customer_email": "info@ilves.fi",
+                "plants": [
+                    {
+                        "filename": "viirivehka-01.png",
+                        "name_fi": "Viirivehka",
+                        "name_en": "Peace Lily",
+                        "amount": 3
+                    }
+                ]
+            }
+        ]
+    }
+
+
+================================================================================
+PYGAME-CE UI TIPS
+================================================================================
+
+These patterns will help you learn pygame UI coding.
+
+
+-----------------------------------------
+Basic button pattern
+-----------------------------------------
+
+    def draw_button(screen, rect, text, font, is_hovered):
+        # Choose color based on hover
+        if is_hovered:
+            color = (120, 180, 120)
+        else:
+            color = (80, 140, 80)
+
+        # Draw background
+        pygame.draw.rect(screen, color, rect, border_radius=8)
+
+        # Draw text centered
+        text_surf = font.render(text, True, (255, 255, 255))
+        text_rect = text_surf.get_rect(center=rect.center)
+        screen.blit(text_surf, text_rect)
+
+    # Usage:
+    btn_rect = pygame.Rect(100, 100, 150, 50)
+    is_hovered = btn_rect.collidepoint(input_mgr.touch_pos)
+    draw_button(screen, btn_rect, "Click Me", font, is_hovered)
+
+    if input_mgr.clicked_in_rect(btn_rect):
+        print("Button clicked!")
+
+
+-----------------------------------------
+Scrollable list pattern
+-----------------------------------------
+
+    class ScrollableList:
+        def __init__(self, rect, item_height):
+            self.rect = rect
+            self.item_height = item_height
+            self.scroll_y = 0
+            self.items = []
+
+        def draw(self, screen, font):
+            # Create clip area
+            screen.set_clip(self.rect)
+
+            y = self.rect.y - self.scroll_y
+            for item in self.items:
+                if y + self.item_height > self.rect.y and y < self.rect.bottom:
+                    # Draw item
+                    item_rect = pygame.Rect(self.rect.x, y, self.rect.width, self.item_height)
+                    pygame.draw.rect(screen, (60, 60, 70), item_rect)
+                    text = font.render(item, True, (255, 255, 255))
+                    screen.blit(text, (item_rect.x + 10, item_rect.y + 10))
+                y += self.item_height
+
+            # Remove clip
+            screen.set_clip(None)
+
+        def scroll(self, amount):
+            max_scroll = max(0, len(self.items) * self.item_height - self.rect.height)
+            self.scroll_y = max(0, min(max_scroll, self.scroll_y + amount))
+
+
+-----------------------------------------
+Semi-transparent overlay pattern
+-----------------------------------------
+
+    # Create surface with alpha channel
+    overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+
+    # Fill with semi-transparent black
+    overlay.fill((0, 0, 0, 150))  # RGBA: 150 = ~60% opacity
+
+    # Blit to screen
+    screen.blit(overlay, (0, 0))
+
+    # Now draw dialog on top
+    pygame.draw.rect(screen, (50, 50, 60), dialog_rect)
+
+
+-----------------------------------------
+Timer bar pattern
+-----------------------------------------
+
+    def draw_timer_bar(screen, x, y, width, height, ratio, colors=None):
+        """
+        Draw a progress/timer bar.
+        ratio: 0.0 to 1.0 (how full the bar is)
+        """
+        if colors is None:
+            colors = {
+                "bg": (30, 30, 30),
+                "high": (100, 180, 100),
+                "mid": (200, 180, 50),
+                "low": (200, 80, 80)
+            }
+
+        # Background
+        pygame.draw.rect(screen, colors["bg"], (x, y, width, height), border_radius=4)
+
+        # Fill
+        fill_width = int(width * ratio)
+        if ratio > 0.5:
+            fill_color = colors["high"]
+        elif ratio > 0.25:
+            fill_color = colors["mid"]
+        else:
+            fill_color = colors["low"]
+
+        if fill_width > 0:
+            pygame.draw.rect(screen, fill_color, (x, y, fill_width, height), border_radius=4)
+
+
+================================================================================
+FILE STRUCTURE AFTER IMPLEMENTATION
+================================================================================
+
+    screens/
+    ├── dialog/
+    │   ├── phone.py              # NEW: Phone screen overlay
+    │   └── ... existing files
+    │
+    └── map/
+        ├── map_screen.py         # Updated: creates order_manager
+        ├── map_ui.py             # Updated: phone icons, uses PhoneScreen
+        ├── order_system.py       # Existing: MapOrderManager + OrderSystem
+        └── ... existing files
+
+    data/
+    ├── map1_orders.json          # NEW: Order data for map1
+    └── ... existing files
+
+    assets/
+    └── ui/
+        ├── phone.png             # NEW: Phone icon (80x80)
+        └── phone_alert.png       # NEW: Phone with alert (80x80)
+
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+After each milestone, test these:
+
+[ ] MILESTONE 1: Phone icons appear on map
+    [ ] Main phone always visible
+    [ ] Alert phone only visible when visible_orders > 0
+    [ ] Badge shows correct count
+    [ ] Click detection works
+
+[ ] MILESTONE 2: Phone screen opens
+    [ ] Clicking icons opens phone
+    [ ] Correct mode (incoming vs accepted)
+    [ ] X button closes phone
+    [ ] Background is dimmed
+
+[ ] MILESTONE 3: Accept button works
+    [ ] Button visible on incoming orders
+    [ ] Clicking accept moves order to accepted
+    [ ] Order disappears from incoming list
+    [ ] Order appears in accepted list
+
+[ ] MILESTONE 4: Timers work
+    [ ] Orders appear after send_time
+    [ ] Accept timer counts down
+    [ ] Expired orders return to available
+    [ ] New batches appear after delay
+
+[ ] MILESTONE 5: Full flow works
+    [ ] Start game, wait for orders
+    [ ] Open incoming phone, see orders
+    [ ] Accept an order
+    [ ] Open main phone, see accepted order

@@ -2,7 +2,7 @@
 
 import esper
 import pygame
-from shared.components import Position, DotRenderable
+from shared.shared_components import Position, DotRenderable
 from screens.map.components import MapBackground, RoadLayer, Camera
 
 

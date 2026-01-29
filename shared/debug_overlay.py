@@ -1,6 +1,6 @@
 # In-game debug overlay renderer
 import pygame
-from shared.debug.debug_log import debug
+from shared.debug_log import debug
 
 
 class DebugOverlay:
