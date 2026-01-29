@@ -1,0 +1,88 @@
+A tool for this game. The unsplash folder has        
+  download.py that has produced some nice images that have been   
+  modified for a game with another script. 
+  
+  the tools purpose is building plant order emails that are sent from the
+  game when player plays one map. 
+  
+  it should read the map image and locations, 
+  it read the available plants from some yaml or json config file.
+  
+  Then i should be able to create data for the map, for example map1_orders.json 
+  that is going to be used to play that map. 
+  
+  The game data is order-emails for     
+  that map, it can be json file or yaml, with the tool i should   
+  be able to set each object in the map some random or constant   
+  values for how many orders they will make, from what list of    
+  plants they will pick random or constant plant amounts that     
+  they order. you dont have to use pygame-ce in ithe tool, you    
+  could use the most common easy python ui library. it should     
+  load the map though and the location data
+  
+
+  To explain the purpose of the tool:
+  The game engine will choose 1-3 orders from this list that 
+  it will process and send with intervals, so that user can respond to any of those.
+  They can be read with a delay. And if not responded in time, they will not be visible,
+  until the next order batch is sent (which may contain the same orders again).
+  When player has devilvered enough plants for the map. The game moves to next map.
+  So the tool is used to create those order lists for each map.
+  
+
+  The output will contain all the orders that will be generated in the map
+  Field 
+  - location_name: name of the map location (also works as id)
+  - send_time : time sending the order, can be random between min and max or constant
+    this is number from 1 to 9 representing some nice const values that game will map to real times
+    we can describe those times later  
+  - sender_email : created by random from some simple pattern and list of words.
+  - plant_list : list of plants with amounts
+     - random: when true, then plant_id and plant_filename are picked randomly from available plants
+     - plant_filename : filename of the plant image
+     - plant_id : id of the plant (the plant filename)
+     - plant_name_fi : name of the plant in Finnish
+     - plant_name_en : name of the plant in English
+     - amount : amount of plants ordered, can be random between min and max, or constant
+       this is number from 1 to 9 representing     
+
+
+  Email assignment feature
+  
+  Each location has one unique email address. Emails are stored in map locations json.
+  Tool reads pseudo-email.json for usernames and domains.
+  When clicking OK on order dialog, tool proposes random email for that location.
+  Email format: username@domain (random pick from both lists).
+  Tool checks email is unique within current map before assigning.
+  If location already has email, keep it. Only assign if missing.
+  Saves email to map_locations.json when map is saved.
+
+
+  User interface 
+
+  Must use single word in Finnish in all buttons, or uX text.
+  here's examples of words that can be used.
+  Valitse, Lataa, Tallenna, Lisää, Poista, OK, Keskeytä, Alas, Ylös.
+  Random, Alaraja, Yläraja, Vakio.
+
+  Tool should have simple list or picker that first is used
+  to choose the map, when chosen, the mapimage and locations json
+  and existing orders of the map are loaded.
+  this can be in top nav bar. Also the top nav bar can have save button.
+   
+  the tool has a constant value for the folder that has the files, 
+  currently the files are in assets/plants/one folder
+  that the download.py array/json structure of plants should      
+  also be converted into config file, the script should be in     
+  the tools folder, and be able to work with the images in        
+  unsplash folder.
+
+
+   To create this orders the tool has a picker for each location of the map.
+   When clicked, a dialog opens that contains the orders for that location.
+   Theres basic crud to add/remove/edit orders in that list.
+   For each order, when clicked, another same kind of dialog opens (yea, nested dialogs).
+   It also has basic crud to add/remove/edit plants in that order.
+   The dialog has plant picker that uses list of images, browseable 4x4 grid, scrollable
+   The plant picker is on the left side. On the right side is the order plant list.
+   

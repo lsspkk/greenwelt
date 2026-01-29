@@ -1,0 +1,305 @@
+================================================================================
+MAP ORDER EMAILS SYSTEM
+================================================================================
+
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+When the player is on the map screen, order emails arrive from customers.
+Each order contains:
+- Customer name (location name from map)
+- Plant requests with amounts
+- Time when the notification is to be shown (for incoming orders)
+- Time limit to accept (for incoming orders)
+
+The player must:
+1. See the incoming order notification
+2. Read and accept the order
+3. Pick up plants from Kasvikauppa (plant shop) when they want
+4. Deliver to the customer location
+5. Complete enough orders to finish the map
+
+
+================================================================================
+2. ORDER NOTIFICATION ON MAP
+================================================================================
+
+Visual indicator:
+- Email/message icon appears on screen (e.g., top-right corner)
+- Icon pulses or animates to draw attention
+- Shows number of unread orders if multiple
+
+Timing:
+- Orders arrive based on send_time from map orders JSON
+- Configurable delay between orders in map config YAML
+- The timer primes 3 orders at a time, so they are selected to be sent.
+  then timer uses each order timer info and counts the time when that order is sent.
+  There must be configurable min time between the times.
+  When all 3 orders have been sent, and either responded or not.
+  Then there is another configurable delay, when 3 more orders are primed: selected.
+  If order has been accepted, it is not chosen again.
+
+Time limit:
+- Each order has a time limit to accept (e.g., 5-10 seconds)
+- Configurable per map in map config YAML
+- If not accepted in time, order expires and is lost
+- Timer bar or countdown visible on notification
+
+
+================================================================================
+3. EMAIL TEXT GENERATION
+================================================================================
+
+Email text is built from:
+- data/order_sentences.yaml (plant and amount sentences)
+- map orders JSON (plant names and amounts)
+
+Algorithm:
+1. For each plant in the order:
+   a. Pick random sentence with sentence_type: "plant"
+   b. Replace {order_plant_name} with plant_name_fi
+   c. Pick random sentence with sentence_type: "amount"
+   d. Replace {order_amount} with the amount number
+
+Example order data:
+    {
+      "plant_filename": "köynnösvehka-01.png",
+      "plant_name_fi": "Köynnösvehka",
+      "amount": 2
+    }
+
+Example sentences from YAML:
+    - sentence_type: plant
+      phrase: Haluaisin todella saada {order_plant_name}.
+    - sentence_type: amount
+      phrase: Tarvitsen {order_amount} kappaletta.
+
+Generated email text:
+    "Haluaisin todella saada Köynnösvehka. Tarvitsen 2 kappaletta."
+
+Full email format:
+    From: [Customer Name]
+    
+    [Plant sentence 1] [Amount sentence 1]
+    [Plant sentence 2] [Amount sentence 2]
+    ...
+
+
+================================================================================
+4. ORDER STATES
+================================================================================
+
+Each order goes through these states:
+
+    AVAILABLE   -> Order is available to be sent to player
+    INCOMING    -> Order notification shown, timer counting down
+    AVAILABLE   -> If player did not accept the order in its time limit
+    ACCEPTED    -> Player accepted the order
+    COMPLETED   -> Order was delivered, its scored and recorded
+
+
+================================================================================
+5. ORDER TRACKING
+================================================================================
+
+The game tracks per map:
+
+CurrentMapState:
+    map_id: "map1"
+    orders_file: "data/map1_orders.json"
+    time_to_select_incoming_orders: # int, -1 or timer.
+    
+    available_orders: []    # Orders that can be sent to player
+    incoming_orders: []     # Current orders with show and hide timers
+    accepted_orders: []     # Orders player has accepted
+    completed_orders: []    # Orders that have been delivered
+
+
+------------------------------
+Order state, times and arrays
+------------------------------
+
+These values are configured in the config yaml of each map
+"order_incoming_count" and "order_incoming_delay"
+
+- When theres no incoming orders, 
+  the game sets time_to_select_incoming_orders value,
+  calculated like this: random() * "order_incoming_delay"
+- After timer has passed, 
+  The game randomly selects "order_incoming_count", for example 3 orders.
+  and sets the timer to -1
+- These are moved to incoming_orders,
+  their state is changed into INCOMING 
+  and their time_to_show
+  is set based by the set_time of the order
+- When time_to_show is reached, it is set to -1 and time_to_hide is
+  set to HIDE_TIME
+- If player does not view the order at the moment,
+  and the time_to_hide has passed, 
+  then the order state is set to AVAILABLE, and order is moved to 
+  available_orders
+- If player has accepted the order, 
+  its state is changed into ACCEPTED and it is moved into accepted_orders
+- If player goes to a location that has placed an order,
+  and the player is carrying some plants,
+  then a button is shown that can be clicked to deliver plants to the location.
+- The button opens a dialog, if player has some of the right plants, then 
+  they can deliver some or all plants of the order.
+  Player can choose partial delivery, or complete delivery:
+  both cause the order to be moved to completed_orders 
+  and order state is changed to COMPLETED
+- After doing these actions the incoming_orders array becomes empty again.
+
+
+
+================================================================================
+6. ORDER USER INTERFACES
+================================================================================
+
+
+Player can view those incoming orders that are visible by timer-fields:
+- order is visible if it has time_to_show = -1 and time_to_hide not -1
+- A button on map screen is visible when there are visible incoming orders.
+  Button is a Phone icon with alert icon.
+- Opens list of visible incoming orders
+- List Shows customer name, total amount
+- Clicking on list lets user see individual order:
+  Customer image, Location name, email address.
+  and scrollable area that has email text of the order
+  There is a button that player can click to accept the order
+
+Player can view accepted_orders via phone:
+- Phone button on map screen, is a Phone icon, always visible.
+- Opens list of accepted orders
+- List Shows customer name, total amount
+- Clicking on list lets user see individualorder:
+  Customer image, Location name, email address.
+  and scrollable area that has email text of the order
+- Player can also look at plant list they are carrying
+  The plant list is scrollable area of plant cards:
+
+  A plant card has 
+  - small plant image, the amount carried by player,
+  - total count of this plant in active orders in a text like this
+    TILATTU YHTEENSÄ  6 kpl
+  
+
+
+================================================================================
+7. SCORE CARD
+================================================================================
+
+When an order is delivered:
+1. Order moves from accepted_orders to completed_orders
+2. Score card updates:
+
+ScoreCard:
+    total_orders_completed: 5
+    total_plants_delivered: 23
+    orders_by_customer: {
+        "Hiiritoimisto": 2,
+        "Siili toimisto": 3
+    }
+    plants_by_type: {
+        "Köynnösvehka": 4,
+        "Palmuvehka": 8,
+        ...
+    }
+
+- Map completion dialog, when enough orders have been completed and plants delivered.
+
+
+================================================================================
+8. MAP CONFIG AND COMPLETION
+================================================================================
+
+Each map has completion requirements in its config YAML.
+
+Example: data/map1_config.yaml
+
+    map_id: map1
+    map_name: "Keskusta"
+    
+    # Order notification timing
+    order_incoming_count: 3        # max amount of how many orders are chosen to incoming state
+    
+    # Completion requirements (meet ANY of these)
+    completion:
+      orders_required: 10          # complete 10 orders to finish
+      # OR
+      plants_required: 50          # deliver 50 plants total to finish
+
+
+When completion requirement is met:
+1. Show map complete dialog, with grande congratulations.
+2. Update game progress
+3. Unlock next map
+4. This map ends.
+
+
+================================================================================
+9. DATA FILES
+================================================================================
+
+Required files per map:
+
+    data/map1_orders.json       # Orders by customer location
+    data/map1_locations.json    # Map marker positions
+    data/map1_roads.json        # Road connections
+    data/map1_config.yaml       # Map configuration
+
+Shared files:
+
+    data/order_sentences.yaml   # Sentence templates with placeholders
+    data/game.toml              # Global game settings
+
+
+================================================================================
+10. ECS COMPONENTS
+================================================================================
+
+OrderData:
+    customer_name: str
+    plants: list[PlantOrder]
+    state: OrderState
+    time_to_show: int           # gametime when order is to be shown or -1
+    time_to_hide: int           # gametime when order is to be hidden or -1
+    generated_text: str         # cached email text
+
+PlantOrder:
+    filename: str
+    name_fi: str
+    name_en: str
+    amount: int
+    picked_up: bool
+
+MapProgress:
+    map_id: str
+    orders_completed: int
+    plants_delivered: int
+    is_complete: bool
+
+
+
+================================================================================
+11. SYSTEMS
+================================================================================
+
+OrderDispatchSystem:
+    - Checks pending_orders
+    - Sends orders based on timing
+    - Creates IncomingOrderNotification
+
+OrderTimerSystem:
+    - Updates accept_timer on incoming orders
+    - Expires orders that time out
+
+OrderTextGeneratorSystem:
+    - Generates email text from templates
+    - Caches in OrderData.generated_text
+
+MapCompletionSystem:
+    - Checks completion requirements
+    - Triggers map complete when met
