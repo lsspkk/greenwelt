@@ -1,7 +1,7 @@
 # Road collision system - prevents movement off roads
 
 import esper
-from shared.components import Position, Velocity
+from shared.shared_components import Position, Velocity
 from screens.map.components import RoadLayer, PlayerOnMap
 
 

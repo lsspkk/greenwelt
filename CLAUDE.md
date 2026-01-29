@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Plant Courier - WASM/Pygbag Project
 
 ## Code Style Guidelines
@@ -86,67 +90,62 @@ class MovementSystem(esper.Processor):
 The game has **three screen types**, each in its own folder:
 
 ```
-src/
+greenwelt/
 ├── main.py                     # Entry point
 ├── esper/                      # Bundled ECS library
 ├── assets/                     # Images, sounds, fonts
-├── data/                       # TOML configuration files
+├── data/                       # JSON configuration files (roads, locations)
 ├── requirements.txt            # Dependencies for pygbag
 │
 ├── screens/
-│   ├── __init__.py
-│   │
-│   ├── dialog/                 # Full-screen dialog screens
-│   │   ├── __init__.py
-│   │   ├── base_dialog.py      # Base class for all dialogs
+│   ├── dialogs/                # Full-screen dialog screens
+│   │   ├── start_dialog.py     # Game start / title screen
 │   │   ├── start_screen.py     # Game start / title screen
 │   │   ├── score_screen.py     # End game score display
 │   │   ├── abort_screen.py     # Quit confirmation
 │   │   ├── conversation.py     # NPC conversation dialogs
-│   │   └── components/         # Dialog-specific ECS components
-│   │       └── __init__.py
+│   │   └── phone.py            # Phone UI dialog
 │   │
 │   ├── map/                    # Top-down world map screen
-│   │   ├── __init__.py
-│   │   ├── map_screen.py       # Main map screen class
-│   │   ├── systems/            # Map-specific ECS systems
-│   │   │   └── __init__.py
-│   │   └── components/         # Map-specific ECS components
-│   │       └── __init__.py
+│   │   ├── map_screen.py           # Main map screen class
+│   │   ├── map_ui.py               # Map UI elements (location indicator, phone buttons)
+│   │   ├── components.py           # Map-specific ECS components (Camera, RoadLayer, etc.)
+│   │   ├── map_render_system.py    # Rendering with camera zoom
+│   │   ├── road_collision_system.py # Road collision detection
+│   │   └── order_manager.py        # Order management
 │   │
-│   └── home/                   # Top-down inside-home screen
-│       ├── __init__.py
-│       ├── home_screen.py      # Main home screen class
-│       ├── systems/            # Home-specific ECS systems
-│       │   └── __init__.py
-│       └── components/         # Home-specific ECS components
-│           └── __init__.py
+│   └── home/                   # Top-down inside-home screen (placeholder)
+│       └── home_screen.py
 │
-└── shared/                     # Shared code across all screens
-    ├── __init__.py
-    ├── components/             # Shared ECS components
-    │   └── __init__.py
-    └── systems/                # Shared ECS systems
-        └── __init__.py
+├── shared/                     # Shared code across all screens
+│   ├── debug_log.py            # Logging utilities
+│   ├── debug_overlay.py        # Debug overlay UI
+│   ├── fullscreen.py           # Fullscreen toggle (browser/desktop)
+│   ├── input_manager.py        # Input handling
+│   └── shared_components.py    # Shared ECS components
+│
+└── tools/                      # Development tools (not bundled in WASM)
+    ├── road_painter.py         # Visual road path editor
+    ├── map_marker.py           # Location marker tool
+    ├── map_order.py            # Order route tool
+    └── generate_texts.py       # Text generation helper
 ```
 
 ### Screen Types
 
-1. **Dialog Screens** (`screens/dialog/`)
+1. **Dialog Screens** (`screens/dialogs/`)
    - Full display size, covers entire screen
-   - Used for: start screen, score screen, abort confirmation, NPC conversations
+   - Used for: start, end, abort, scores, conversations, phone UI
    - Text-heavy, button-based interaction
-   - Reusable dialog components
 
 2. **Map Screen** (`screens/map/`)
    - Top-down view of the world
-   - Player moves between locations
+   - Player moves between locations via click-to-move
    - Shows cities, roads, current position
+   - Order management for deliveries
 
 3. **Home Screen** (`screens/home/`)
-   - Top-down view inside buildings
-   - Player interacts with objects and NPCs
-   - Interior navigation
+   - Top-down view inside buildings (placeholder)
 
 ## Build Commands
 
@@ -161,7 +160,7 @@ uv run python build.py --serve
 uv run python build.py --clean
 
 # Run game locally (native, not WASM)
-uv run python src/main.py
+uv run python main.py
 
 # Add a dependency
 uv add package-name
@@ -189,7 +188,7 @@ uv sync
 
 ```bash
 # Example: bundling esper
-cp -r .venv/lib/python3.12/site-packages/esper/ src/esper/
+cp -r .venv/lib/python3.12/site-packages/esper/ esper/
 ```
 
 Then remove from `requirements.txt` since it's now bundled.

@@ -123,7 +123,7 @@ MapOrderManager (plain Python class, not ECS):
     completed_orders: list[Order]       # Delivered
     
     # Timers
-    batch_timer: float                  # Time until next batch selection
+    countdown_to_incoming: float         # Time until next orders are selected to INCOMING state
     
     # Progress tracking
     orders_completed_count: int
@@ -136,7 +136,8 @@ Order (data class):
     plants: list[PlantOrder]
     state: OrderState
     send_time: float                    # Delay before becoming visible (from JSON)
-    accept_timer: float                 # Countdown once visible (-1 if not visible)
+    countdown_to_visible: float         # Countdown to change state from VISIBLE to INCOMING (-1 if not INCOMING)
+    countdown_to_available: float       # Countdown to change state from VISIBLE to AVAILABLE (-1 if not VISIBLE)
     generated_text: str                 # Cached email text
 
 PlantOrder (data class):
@@ -429,56 +430,3 @@ NOT used for:
 This keeps the order system simple and avoids over-engineering.
 
 
-================================================================================
-13. CORRECTIONS SUMMARY
-================================================================================
-
-Issues found and fixed in this plan revision:
-
-1. ORDER STATES - Fixed inconsistency
-   - Old: INCOMING state was confusing (used for both "in batch" and "visible")
-   - New: Clear separation: INCOMING (in batch, not yet visible) and 
-          VISIBLE (shown to player, accept timer running)
-
-2. SYSTEMS - Dramatically simplified
-   - Old: 4 separate systems (OrderDispatchSystem, OrderTimerSystem, 
-          OrderTextGeneratorSystem, MapCompletionSystem)
-   - New: Single OrderSystem handles all order logic
-   - Reason: Orders are tightly coupled, splitting into systems adds 
-             complexity without benefit
-
-3. ECS USAGE - Clarified scope
-   - Old: Plan implied orders might be ECS entities
-   - New: Orders are plain Python data managed by MapOrderManager
-   - ECS is only for game entities (player, locations, NPCs)
-   - Reason: Orders don't need component composition, they have fixed structure
-
-4. TIME TRACKING - Fixed confusing terminology
-   - Old: time_to_show and time_to_hide were confusing (-1 meant different things)
-   - New: send_time (delay until visible) and accept_timer (countdown when visible)
-   - Simpler mental model
-
-5. DATA STRUCTURE - Added missing customer_email
-   - Orders need customer_email for the phone view
-   - This comes from map1_locations.json, matched by location name
-
-6. ADDED: Phone icons section (section 6)
-   - Two distinct phone icons with clear purposes
-   - Visibility rules and actions
-
-7. ADDED: Screens and UI components section (section 7)
-   - All screens needed for the order system
-   - Layout descriptions for each screen
-   - UI component details
-
-8. REMOVED: Overly complex timer logic
-   - Old: time_to_select_incoming_orders with complex -1 logic
-   - New: Simple batch_timer that counts down
-
-9. PLANT SHOP - Added dialog description
-   - Clarified how player picks up plants at Kasvikauppa
-   - Based on accepted orders
-
-10. PARTIAL DELIVERY - Simplified
-    - Old: Implied complex partial delivery tracking
-    - New: Player delivers what they have, order completes when fully delivered
