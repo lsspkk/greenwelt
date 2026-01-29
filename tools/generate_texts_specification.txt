@@ -1,0 +1,162 @@
+================================================================================
+GENERATE TEXTS SPECIFICATION
+
+Script: generate_texts.py
+Output: data/order_sentences.yaml
+
+Run with:
+    uv run python tools/generate_texts.py
+    
+================================================================================
+1. PURPOSE
+
+Generate Finnish sentences for the plant delivery game order emails.
+The script sends prompts to a local Ollama LLM and collects Finnish translations.
+
+Two types of sentences are generated:
+- Plant sentences: "I want {plant}" style requests
+- Amount sentences: "I need {number}" style quantity expressions
+
+
+================================================================================
+2. PROMPTS
+
+Send prompts directly to the model without modification.
+
+PLANT PROMPTS:
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I would very much like to have this green dream plant called {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I absolutely must have {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä ajatus:
+  For many years I've neglected the thought but now I finally want {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I really want {plant-name-placeholder} for my place
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I have decided that I need {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I would like to order {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I feel that {plant-name-placeholder} would be perfect for me
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I have been thinking about getting {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I would be happy to receive {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I am interested in {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I kinda want {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I've been wanting {plant-name-placeholder} for a while
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I think {plant-name-placeholder} would be nice
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I'd love to have {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  Maybe it's time to get {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  For a long time I've admired plants from afar, and now I feel ready to finally welcome {plant-name-placeholder} into my life
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  After much thought and hesitation, I've come to realize that what I truly want is {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I've been dreaming about adding more greenery to my space, and {plant-name-placeholder} feels like the perfect choice
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  Over the years my interest has grown slowly, and now I sincerely wish to have {plant-name-placeholder}
+- Ilmaise suomeksi yhdellä lauseella tämä asia:
+  I've finally decided to follow my heart and ask for {plant-name-placeholder}
+
+AMOUNT PROMPTS:
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: I need number {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: I'm thinking of the amount {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: For this place, I think we need {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: We will require {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Please send {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: The quantity should be {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: I would like {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Order amount is {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: We need about {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Let's take {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Let's go with {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Maybe {number-placeholder} is enough
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: How about {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Just {number-placeholder} please
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: I'll take {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: We need {number-placeholder} ASAP
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Send {number-placeholder} now
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Urgently need {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: We are short {number-placeholder}
+- Ilmaise suomeksi hyvin lyhyesti tämä asia: Please deliver {number-placeholder} immediately
+
+
+================================================================================
+3. PLACEHOLDER NORMALIZATION
+
+
+The LLM may respond with various placeholder formats:
+- {something}
+- [something]
+- Or no placeholder at all
+
+The script must normalize all responses to use these exact placeholders:
+- Plant sentences: {order_plant_name}
+- Amount sentences: {order_amount}
+
+Rules:
+1. Replace any {text} or [text] in the response with the correct placeholder
+2. If the response has no placeholder, append the correct one at the end
+
+Example output:
+
+    sentences:
+    - sentence_type: plant
+      phrase: Haluaisin todella saada {order_plant_name}.
+    - sentence_type: amount
+      phrase: Tarvitsen {order_amount} kappaletta.
+
+
+================================================================================
+4. CONFIGURATION
+
+
+The script must have configurable constants at the top:
+
+    OLLAMA_HOST = "172.23.64.1"
+    OLLAMA_PORT = 11434
+    MODEL = "translategemma:4b"
+
+    PLANT_PLACEHOLDER = "{order_plant_name}"
+    AMOUNT_PLACEHOLDER = "{order_amount}"
+
+
+
+================================================================================
+5. OUTPUT
+
+Write to: data/order_sentences.yaml
+
+Format:
+    sentences:
+    - sentence_type: plant
+      phrase: Finnish sentence with {order_plant_name}
+    - sentence_type: amount
+      phrase: Finnish sentence with {order_amount}
+
+Overwrite the file completely on each run.
+
+
+================================================================================
+6. DUPLICATE REMOVAL
+================================================================================
+
+After generating all sentences, remove duplicates based on (sentence_type, phrase).
+
+Example implementation:
+
+    seen = set()
+    unique_sentences = []
+    for entry in sentences:
+        key = (entry["sentence_type"], entry["phrase"])
+        if key not in seen:
+            seen.add(key)
+            unique_sentences.append(entry)
+

@@ -1,0 +1,85 @@
+sentences:
+- sentence_type: plant
+  phrase: '"Olen todella kiinnostunut hankkimaan tämän kauniin, vihreän {order_plant_name}-kasvin."'
+- sentence_type: plant
+  phrase: Minun on ehdottomasti hankittava {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen pitkään unohtanut tämän, mutta nyt haluan vihdoin alkaa kasvattaa {order_plant_name}a.
+- sentence_type: plant
+  phrase: Haluan todella {order_plant_name} -kasvin asuuni.
+- sentence_type: plant
+  phrase: Olen päättänyt, että tarvitsen {order_plant_name}.
+- sentence_type: plant
+  phrase: Haluaisin tilata {order_plant_name} -kasvin.
+- sentence_type: plant
+  phrase: Uskon, että {order_plant_name} sopisi minulle täydellisesti.
+- sentence_type: plant
+  phrase: Olen miettinyt, että voisin hankkia {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen iloinen, jos saan {order_plant_name} -kasvin.
+- sentence_type: plant
+  phrase: Olen kiinnostunut {order_plant_name} kasveista.
+- sentence_type: plant
+  phrase: Minulla on pieni halu kasvattaa {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen toivonut pitkään, että minulla olisi {order_plant_name}.
+- sentence_type: plant
+  phrase: Minusta {order_plant_name} olisi hieno.
+- sentence_type: plant
+  phrase: Minun olisi todella kiva saada {order_plant_name}.
+- sentence_type: plant
+  phrase: Saattaa olla aika hankkia {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen pitkään ihaillut kasveja, ja nyt olen valmis ottamaan {order_plant_name}
+    osaksi omaa elämääni.
+- sentence_type: plant
+  phrase: Pitkän pohdinnan ja epävarmuuden jälkeen olen ymmärtänyt, että minun todellinen
+    toivoni on kasvattaa {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen unelmoinut lisää viherkasvien lisäämisestä tilaani, ja {order_plant_name}
+    tuntuu täydelliseltä valinnalta.
+- sentence_type: plant
+  phrase: Olen hitaasti, vuosien varrella, alkanut kiinnostua ja nyt toivon todella
+    saada {order_plant_name}.
+- sentence_type: plant
+  phrase: Olen vihdoin päättänyt kuunnella sydäntäni ja pyytää {order_plant_name} -kasvia.
+- sentence_type: amount
+  phrase: Tarvitsen numeron {order_amount}.
+- sentence_type: amount
+  phrase: Olen miettimässä lukua {order_amount}.
+- sentence_type: amount
+  phrase: Tässä yhteydessä tarvitsemme {order_amount}.
+- sentence_type: amount
+  phrase: Tarvitsemme {order_amount} kappale.
+- sentence_type: amount
+  phrase: Lähetä {order_amount}.
+- sentence_type: amount
+  phrase: Määrä on {order_amount}.
+- sentence_type: amount
+  phrase: Minulla on tarve {order_amount}.
+- sentence_type: amount
+  phrase: 'Tilausmäärä: {order_amount}'
+- sentence_type: amount
+  phrase: Tarvitsemme noin {order_amount} -ta.
+- sentence_type: amount
+  phrase: Ota {order_amount}.
+- sentence_type: amount
+  phrase: Valitse vaihtoehto {order_amount}.
+- sentence_type: amount
+  phrase: Mahdollisesti {order_amount} riittää.
+- sentence_type: amount
+  phrase: '"Mitä mieltä olet, taidan hankkia {order_amount}"'
+- sentence_type: amount
+  phrase: '"Anna numero: {order_amount}"'
+- sentence_type: amount
+  phrase: '"Otetaan {order_amount} kappaletta."'
+- sentence_type: amount
+  phrase: Tarvitsemme {order_amount} mahdollisimman pian.
+- sentence_type: amount
+  phrase: Lähetä {order_amount} nyt.
+- sentence_type: amount
+  phrase: Tarvitsen välittömästi {order_amount}.
+- sentence_type: amount
+  phrase: 'Olemme vajaavaisia: {order_amount}'
+- sentence_type: amount
+  phrase: Toimita välittömästi {order_amount}.

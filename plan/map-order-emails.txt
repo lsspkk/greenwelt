@@ -1,0 +1,484 @@
+================================================================================
+MAP ORDER EMAILS SYSTEM
+================================================================================
+
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+When the player is on the map screen, order emails arrive from customers.
+Each order contains:
+- Customer name (location name from map)
+- Plant requests with amounts
+- Time when the order notification is to be shown (send_time)
+
+The player must:
+1. See the incoming order notification (phone icon with alert)
+2. Open phone and read the order
+3. Accept the order before it expires
+4. Pick up plants from Kasvikauppa (plant shop)
+5. Deliver to the customer location
+6. Complete enough orders to finish the map
+
+
+================================================================================
+2. ORDER NOTIFICATION ON MAP
+================================================================================
+
+Visual indicator:
+- Phone icon with alert badge appears when there are visible incoming orders
+- Shows count of unread incoming orders
+- Separate phone icon (without alert) always visible for viewing accepted orders
+
+Timing:
+- Orders are selected in batches (e.g., 3 at a time)
+- Each order in the batch has its own send_time delay before becoming visible
+- After batch is processed, a delay before next batch is selected
+- Configurable in map config YAML
+
+Time limit:
+- Each visible incoming order has a time limit to accept (e.g., 10 seconds)
+- Configurable per map in map config YAML
+- If not accepted in time, order goes back to available pool
+- Timer bar visible on the order in phone view
+
+
+================================================================================
+3. EMAIL TEXT GENERATION
+================================================================================
+
+Email text is built from:
+- data/order_sentences.yaml (plant and amount sentences)
+- map orders JSON (plant names and amounts)
+
+Algorithm:
+1. For each plant in the order:
+   a. Pick random sentence with sentence_type: "plant"
+   b. Replace {order_plant_name} with plant_name_fi
+   c. Pick random sentence with sentence_type: "amount"
+   d. Replace {order_amount} with the amount number
+
+Example order data:
+    {
+      "plant_filename": "köynnösvehka-01.png",
+      "plant_name_fi": "Köynnösvehka",
+      "amount": 2
+    }
+
+Example sentences from YAML:
+    - sentence_type: plant
+      phrase: Haluaisin todella saada {order_plant_name}.
+    - sentence_type: amount
+      phrase: Tarvitsen {order_amount} kappaletta.
+
+Generated email text:
+    "Haluaisin todella saada Köynnösvehka. Tarvitsen 2 kappaletta."
+
+Full email format:
+    From: [Customer Name]
+    
+    [Plant sentence 1] [Amount sentence 1]
+    [Plant sentence 2] [Amount sentence 2]
+    ...
+
+
+================================================================================
+4. ORDER STATES
+================================================================================
+
+Each order goes through these states:
+
+    AVAILABLE   -> Order can be selected for incoming batch
+    INCOMING    -> Order is in current batch, waiting for send_time
+    VISIBLE     -> Order notification shown, accept timer counting down
+    ACCEPTED    -> Player accepted the order
+    COMPLETED   -> Order was delivered successfully
+
+State transitions:
+    AVAILABLE -> INCOMING    : Selected into batch
+    INCOMING  -> VISIBLE     : send_time reached
+    VISIBLE   -> AVAILABLE   : Accept timer expired (order lost)
+    VISIBLE   -> ACCEPTED    : Player clicked accept
+    ACCEPTED  -> COMPLETED   : Delivery completed
+
+
+================================================================================
+5. ORDER DATA STRUCTURE
+================================================================================
+
+Orders are stored in a simple dictionary, NOT as ECS entities.
+The map screen manages order state directly.
+
+MapOrderManager (plain Python class, not ECS):
+    
+    # Loaded from JSON
+    all_orders: dict[str, list[Order]]  # location_name -> list of orders
+    
+    # Runtime state
+    available_orders: list[Order]       # Can be selected
+    incoming_orders: list[Order]        # In batch, waiting for send_time
+    visible_orders: list[Order]         # Shown to player, accept timer running
+    accepted_orders: list[Order]        # Player accepted, pending delivery
+    completed_orders: list[Order]       # Delivered
+    
+    # Timers
+    batch_timer: float                  # Time until next batch selection
+    
+    # Progress tracking
+    orders_completed_count: int
+    plants_delivered_count: int
+
+Order (data class):
+    order_id: str
+    customer_location: str                  # Location name
+    customer_email: str                 # From locations JSON
+    plants: list[PlantOrder]
+    state: OrderState
+    send_time: float                    # Delay before becoming visible (from JSON)
+    accept_timer: float                 # Countdown once visible (-1 if not visible)
+    generated_text: str                 # Cached email text
+
+PlantOrder (data class):
+    filename: str
+    name_fi: str
+    name_en: str
+    amount: int
+
+
+================================================================================
+6. PHONE ICONS
+================================================================================
+
+Two phone icons on the map screen:
+
+1. INCOMING ORDERS PHONE (with alert)
+   - Icon: Phone with red/orange notification badge
+   - Visible: Only when there are visible incoming orders
+   - Badge shows: Count of visible incoming orders
+   - Position: Top-right area of map screen
+   - Action: Opens incoming orders list
+   - Visual: Subtle pulse animation when new orders arrive
+
+2. ACCEPTED ORDERS PHONE (main phone)
+   - Icon: Phone without alert badge
+   - Visible: Always
+   - Position: Fixed position in UI bar (e.g., top-left or bottom)
+   - Action: Opens phone interface with tabs for:
+     - Accepted orders list
+     - Inventory (plants being carried)
+   - Badge: Optional badge showing accepted order count
+
+Icon design:
+- Simple phone silhouette
+- Clear at 1920x1080 resolution
+- Approximately 80x80 pixels
+- Contrasting colors for visibility on map
+
+
+================================================================================
+7. SCREENS AND UI COMPONENTS
+================================================================================
+
+-----------------------------------------
+7.1 MAP SCREEN (main gameplay screen)
+-----------------------------------------
+
+Components:
+- Map background image
+- Player position marker (movable dot)
+- Location markers (shops, offices, houses, restaurants)
+- Road network (for pathfinding/movement)
+- Phone icons (see section 6)
+- Delivery button (when at customer location with plants)
+
+UI overlay elements:
+- Timer bar for map completion (if time-limited)
+- Progress indicator (orders completed / required)
+- Current location name display
+
+
+-----------------------------------------
+7.2 INCOMING ORDERS PHONE SCREEN
+-----------------------------------------
+
+Opened by: Tapping incoming orders phone icon
+
+Layout:
+- Title: "Saapuvat tilaukset" (Incoming Orders)
+- List of visible incoming orders, each showing:
+  - Customer name
+  - Accept timer bar (visual countdown)
+  - Plant count summary (e.g., "3 kasvia")
+- Back button to return to map
+
+Order detail view (tap on order):
+- Customer image (from faces.png atlas)
+- Customer name
+- Email address
+- Scrollable email text
+- Accept button
+- Back button to list
+
+
+-----------------------------------------
+7.3 MAIN PHONE SCREEN
+-----------------------------------------
+
+Opened by: Tapping main phone icon
+
+Layout - Tab based:
+
+TAB 1: "Tilaukset" (Orders)
+- List of accepted orders, each showing:
+  - Customer name
+  - Location type icon
+  - Plant count summary
+- Tap to view order detail:
+  - Customer image
+  - Customer name and email
+  - Scrollable email text
+  - Plant list with images and amounts
+
+TAB 2: "Varasto" (Inventory)
+- Scrollable list of carried plants
+- Each plant card shows:
+  - Plant image (small, ~100x100)
+  - Plant name (Finnish)
+  - Amount carried: "Sinulla: X kpl"
+  - Amount ordered total: "Tilattu: Y kpl"
+
+
+-----------------------------------------
+7.4 DELIVERY DIALOG
+-----------------------------------------
+
+Triggered: When player is at customer location with accepted order
+         and has some matching plants in inventory
+
+Layout:
+- Dialog overlay on map
+- Title: "Toimitus: [Customer Name]"
+- List of plants in this order:
+  - Plant image
+  - Plant name
+  - Ordered amount
+  - Your amount (how many you're carrying)
+  - Delivery status (can deliver / missing)
+- Buttons:
+  - "Toimita" (Deliver) - delivers available plants
+  - "Peruuta" (Cancel) - close dialog
+
+After delivery:
+- Show confirmation message
+- Update order status
+- If order fully completed, show success message
+
+
+-----------------------------------------
+7.5 MAP COMPLETION DIALOG
+-----------------------------------------
+
+Triggered: When completion requirements met
+
+Layout:
+- Full screen celebration dialog
+- Title: "Kartta suoritettu!" (Map Completed!)
+- Statistics:
+  - Orders completed
+  - Plants delivered
+  - (Optional: time taken)
+- Continue button -> unlocks next map
+
+
+-----------------------------------------
+7.6 PLANT SHOP DIALOG (at Kasvikauppa)
+-----------------------------------------
+
+Triggered: When player arrives at Kasvikauppa
+
+Layout:
+- Dialog showing available plants to pick up
+- Based on accepted orders:
+  - Shows plants needed for current orders
+  - Player can select which to pick up
+- Plant list with checkboxes or tap-to-add
+- "Ota kasvit" (Take Plants) button
+- Shows current inventory weight/count if limited
+
+
+================================================================================
+8. SCORE TRACKING
+================================================================================
+
+Tracked during map play:
+
+    orders_completed_count: int
+    plants_delivered_count: int
+    orders_by_customer: dict[str, int]      # For statistics
+    plants_by_type: dict[str, int]          # For statistics
+
+When an order is delivered:
+1. Order moves to completed_orders
+2. Counters update
+3. Check if completion requirement met
+
+
+================================================================================
+9. MAP CONFIG AND COMPLETION
+================================================================================
+
+Each map has completion requirements in its config YAML.
+
+Example: data/map1_config.yaml
+
+    map_id: map1
+    map_name: "Keskusta"
+    
+    # Order batch timing
+    order_batch_size: 3             # How many orders selected per batch
+    order_batch_delay: 10.0         # Seconds between batches
+    order_accept_time: 15.0         # Seconds to accept before order expires
+    
+    # Completion requirements (meet ANY of these)
+    completion:
+      orders_required: 10           # Complete 10 orders to finish
+      # OR
+      plants_required: 50           # Deliver 50 plants total to finish
+
+When completion requirement is met:
+1. Show map complete dialog
+2. Update game progress
+3. Unlock next map
+
+
+================================================================================
+10. DATA FILES
+================================================================================
+
+Required files per map:
+
+    data/map1_orders.json       # Orders by customer location
+    data/map1_locations.json    # Map marker positions with emails
+    data/map1_roads.json        # Road connections
+    data/map1_config.yaml       # Map configuration
+
+Shared files:
+
+    data/order_sentences.yaml   # Sentence templates with placeholders
+    data/game.toml              # Global game settings
+
+
+================================================================================
+11. SYSTEMS (SIMPLIFIED)
+================================================================================
+
+Only ONE system handles all order logic:
+
+OrderSystem (esper.Processor):
+    
+    Responsibilities:
+    - Update batch timer, select new orders when timer expires
+    - Update send_time timers for incoming orders
+    - Move orders from INCOMING to VISIBLE when send_time reached
+    - Update accept timers for visible orders
+    - Move expired visible orders back to AVAILABLE
+    - Generate email text when order becomes visible (if not cached)
+    - Check map completion requirements
+
+    process(dt):
+        1. If incoming_orders and visible_orders are both empty:
+           - Decrement batch_timer
+           - If batch_timer <= 0: select_next_batch()
+        
+        2. For each order in incoming_orders:
+           - Decrement send_time timer
+           - If timer <= 0: move to visible_orders, set accept_timer
+        
+        3. For each order in visible_orders:
+           - Decrement accept_timer
+           - If accept_timer <= 0: move back to available_orders
+        
+        4. Check completion:
+           - If orders_completed >= orders_required: trigger map complete
+           - OR if plants_delivered >= plants_required: trigger map complete
+
+The MapScreen handles:
+    - User input (tapping phone icons, delivery button)
+    - Opening phone dialogs
+    - Processing accept/delivery actions
+    - These are NOT in the system, they're in the screen's event handling
+
+
+================================================================================
+12. ECS USAGE (LIMITED)
+================================================================================
+
+ECS is used for game entities that benefit from component composition:
+
+Used for:
+- Player entity (Position, Velocity, Sprite, PlayerInput)
+- Location markers (Position, LocationData, Sprite, Clickable)
+- Future: NPCs at locations (Position, NPCData, Animation)
+
+NOT used for:
+- Orders (managed by MapOrderManager, plain Python class)
+- Score tracking (plain data in MapOrderManager)
+- UI state (managed by screens directly)
+
+This keeps the order system simple and avoids over-engineering.
+
+
+================================================================================
+13. CORRECTIONS SUMMARY
+================================================================================
+
+Issues found and fixed in this plan revision:
+
+1. ORDER STATES - Fixed inconsistency
+   - Old: INCOMING state was confusing (used for both "in batch" and "visible")
+   - New: Clear separation: INCOMING (in batch, not yet visible) and 
+          VISIBLE (shown to player, accept timer running)
+
+2. SYSTEMS - Dramatically simplified
+   - Old: 4 separate systems (OrderDispatchSystem, OrderTimerSystem, 
+          OrderTextGeneratorSystem, MapCompletionSystem)
+   - New: Single OrderSystem handles all order logic
+   - Reason: Orders are tightly coupled, splitting into systems adds 
+             complexity without benefit
+
+3. ECS USAGE - Clarified scope
+   - Old: Plan implied orders might be ECS entities
+   - New: Orders are plain Python data managed by MapOrderManager
+   - ECS is only for game entities (player, locations, NPCs)
+   - Reason: Orders don't need component composition, they have fixed structure
+
+4. TIME TRACKING - Fixed confusing terminology
+   - Old: time_to_show and time_to_hide were confusing (-1 meant different things)
+   - New: send_time (delay until visible) and accept_timer (countdown when visible)
+   - Simpler mental model
+
+5. DATA STRUCTURE - Added missing customer_email
+   - Orders need customer_email for the phone view
+   - This comes from map1_locations.json, matched by location name
+
+6. ADDED: Phone icons section (section 6)
+   - Two distinct phone icons with clear purposes
+   - Visibility rules and actions
+
+7. ADDED: Screens and UI components section (section 7)
+   - All screens needed for the order system
+   - Layout descriptions for each screen
+   - UI component details
+
+8. REMOVED: Overly complex timer logic
+   - Old: time_to_select_incoming_orders with complex -1 logic
+   - New: Simple batch_timer that counts down
+
+9. PLANT SHOP - Added dialog description
+   - Clarified how player picks up plants at Kasvikauppa
+   - Based on accepted orders
+
+10. PARTIAL DELIVERY - Simplified
+    - Old: Implied complex partial delivery tracking
+    - New: Player delivers what they have, order completes when fully delivered
