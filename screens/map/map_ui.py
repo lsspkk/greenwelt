@@ -38,12 +38,16 @@ class MapUI:
             "assets/ui/phone_alert.png").convert_alpha()
 
         # Top icon: accepted orders (main phone) - moved down to make room for portrait
-        self.accepted_phone_rect = pygame.Rect(32, 120, 64, 64)
-        self.accepted_phone_border = self.accepted_phone_rect.inflate(8, 8)
+        self.accepted_phone_rect = pygame.Rect(32, 120, 84, 84)
+        self.accepted_phone_border = self.accepted_phone_rect.inflate(12, 12)
+        self.phone_icon = pygame.transform.smoothscale(
+            self.phone_icon, (84, 84))
 
         # Below: incoming orders (alert phone)
-        self.incoming_phone_rect = pygame.Rect(32, 200, 64, 64)
-        self.incoming_phone_border = self.incoming_phone_rect.inflate(8, 8)
+        self.incoming_phone_rect = pygame.Rect(32, 250, 84, 84)
+        self.incoming_phone_border = self.incoming_phone_rect.inflate(12, 12)
+        self.phone_alert_icon = pygame.transform.smoothscale(
+            self.phone_alert_icon, (84, 84))
 
         # Layout constants
         self.padding = 30
@@ -173,7 +177,8 @@ class MapUI:
         if visible_count > 0:
             pygame.draw.rect(self.screen, bg_color,
                              self.incoming_phone_border, border_radius=12)
-            self.screen.blit(self.phone_alert_icon, self.incoming_phone_rect.topleft)
+            self.screen.blit(self.phone_alert_icon,
+                             self.incoming_phone_rect.topleft)
             self._draw_badge(self.incoming_phone_rect, visible_count)
 
             if input_mgr.clicked_in_rect(self.incoming_phone_rect):
@@ -188,7 +193,8 @@ class MapUI:
         badge_y = icon_rect.top + badge_radius - 4
 
         # Red circle
-        pygame.draw.circle(self.screen, (220, 60, 60), (badge_x, badge_y), badge_radius)
+        pygame.draw.circle(self.screen, (220, 60, 60),
+                           (badge_x, badge_y), badge_radius)
 
         # White text
         badge_text = self.small_font.render(str(count), True, (255, 255, 255))
@@ -211,8 +217,10 @@ class MapUI:
         pygame.draw.circle(self.screen, (60, 40, 30), (right_eye_x, eye_y), 5)
 
         # Eye highlights
-        pygame.draw.circle(self.screen, (255, 255, 255), (left_eye_x + 1, eye_y - 2), 2)
-        pygame.draw.circle(self.screen, (255, 255, 255), (right_eye_x + 1, eye_y - 2), 2)
+        pygame.draw.circle(self.screen, (255, 255, 255),
+                           (left_eye_x + 1, eye_y - 2), 2)
+        pygame.draw.circle(self.screen, (255, 255, 255),
+                           (right_eye_x + 1, eye_y - 2), 2)
 
         # Smile (arc)
         smile_rect = pygame.Rect(cx - 15, cy - 5, 30, 25)

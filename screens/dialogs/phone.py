@@ -23,8 +23,8 @@ class PhoneScreen:
 
         # Phone frame dimensions (centered on screen)
         screen_w, screen_h = screen.get_size()
-        phone_w = 500
-        phone_h = 750  # <<<< PHONE TOTAL HEIGHT
+        phone_w = 600
+        phone_h = 950  # <<<< PHONE TOTAL HEIGHT
         self.phone_rect = pygame.Rect(
             (screen_w - phone_w) // 2,
             (screen_h - phone_h) // 2,
@@ -34,7 +34,8 @@ class PhoneScreen:
 
         # Device frame (outer bezel)
         bezel_padding = 12
-        self.bezel_rect = self.phone_rect.inflate(bezel_padding * 2, bezel_padding * 2)
+        self.bezel_rect = self.phone_rect.inflate(
+            bezel_padding * 2, bezel_padding * 2)
 
         # Fonts
         self.logo_font = pygame.font.Font(None, 52)
@@ -178,20 +179,25 @@ class PhoneScreen:
         """Draw the device bezel/frame to make it look like a kids' watch."""
         # Outer bezel shadow
         shadow_rect = self.bezel_rect.move(4, 4)
-        pygame.draw.rect(self.screen, (20, 20, 20), shadow_rect, border_radius=30)
+        pygame.draw.rect(self.screen, (20, 20, 20),
+                         shadow_rect, border_radius=30)
 
         # Main bezel
-        pygame.draw.rect(self.screen, self.bezel_color, self.bezel_rect, border_radius=28)
+        pygame.draw.rect(self.screen, self.bezel_color,
+                         self.bezel_rect, border_radius=28)
 
         # Bezel edge highlight (top-left)
         highlight_rect = self.bezel_rect.inflate(-4, -4)
-        pygame.draw.rect(self.screen, (80, 160, 120), highlight_rect, 2, border_radius=26)
+        pygame.draw.rect(self.screen, (80, 160, 120),
+                         highlight_rect, 2, border_radius=26)
 
         # Inner screen area
-        pygame.draw.rect(self.screen, self.screen_color, self.phone_rect, border_radius=16)
+        pygame.draw.rect(self.screen, self.screen_color,
+                         self.phone_rect, border_radius=16)
 
         # Screen edge (inset effect)
-        pygame.draw.rect(self.screen, (20, 25, 35), self.phone_rect, 2, border_radius=16)
+        pygame.draw.rect(self.screen, (20, 25, 35),
+                         self.phone_rect, 2, border_radius=16)
 
         # Draw small decorative elements on bezel (like watch buttons)
         # Left side "button"
@@ -201,7 +207,8 @@ class PhoneScreen:
             8,
             60
         )
-        pygame.draw.rect(self.screen, self.bezel_edge_color, left_btn, border_radius=3)
+        pygame.draw.rect(self.screen, self.bezel_edge_color,
+                         left_btn, border_radius=3)
 
         # Right side "button"
         right_btn = pygame.Rect(
@@ -210,7 +217,8 @@ class PhoneScreen:
             8,
             40
         )
-        pygame.draw.rect(self.screen, self.bezel_edge_color, right_btn, border_radius=3)
+        pygame.draw.rect(self.screen, self.bezel_edge_color,
+                         right_btn, border_radius=3)
 
     def _draw_header(self):
         """Draw header with iPuhelin logo."""
@@ -317,7 +325,8 @@ class PhoneScreen:
             button_w,
             button_h
         )
-        self._draw_navbar_button(self.nav_button_rect, "Kartta", self._draw_nav_icon)
+        self._draw_navbar_button(self.nav_button_rect,
+                                 "[-]", self._draw_nav_icon)
 
         # Camera button (center-right)
         self.camera_button_rect = pygame.Rect(
@@ -326,7 +335,8 @@ class PhoneScreen:
             button_w,
             button_h
         )
-        self._draw_navbar_button(self.camera_button_rect, "Kamera", self._draw_camera_icon)
+        self._draw_navbar_button(
+            self.camera_button_rect, "[O]", self._draw_camera_icon)
 
     def _draw_navbar_button(self, rect: pygame.Rect, label: str, icon_func):
         """Draw a navbar button with icon and label."""
@@ -341,13 +351,15 @@ class PhoneScreen:
 
         # Label below icon
         label_surf = self.small_font.render(label, True, (200, 200, 200))
-        label_rect = label_surf.get_rect(centerx=rect.centerx, bottom=rect.bottom - 4)
+        label_rect = label_surf.get_rect(
+            centerx=rect.centerx, bottom=rect.bottom - 4)
         self.screen.blit(label_surf, label_rect)
 
     def _draw_nav_icon(self, x: int, y: int):
         """Draw a simple navigation/map icon."""
         # Compass-like icon
-        pygame.draw.circle(self.screen, (150, 200, 150), (x + 10, y + 10), 10, 2)
+        pygame.draw.circle(self.screen, (150, 200, 150),
+                           (x + 10, y + 10), 10, 2)
         # North indicator
         pygame.draw.polygon(self.screen, (150, 200, 150), [
             (x + 10, y + 2),
@@ -358,7 +370,8 @@ class PhoneScreen:
     def _draw_camera_icon(self, x: int, y: int):
         """Draw a simple camera icon."""
         # Camera body
-        pygame.draw.rect(self.screen, (150, 200, 150), (x + 2, y + 5, 16, 12), border_radius=2)
+        pygame.draw.rect(self.screen, (150, 200, 150),
+                         (x + 2, y + 5, 16, 12), border_radius=2)
         # Lens
         pygame.draw.circle(self.screen, (100, 150, 100), (x + 10, y + 11), 4)
         pygame.draw.circle(self.screen, (150, 200, 150), (x + 10, y + 11), 3)
@@ -392,7 +405,8 @@ class PhoneScreen:
             return
 
         for order in orders:
-            self._draw_order_card(order, y, show_timer=False, track_for_click=True)
+            self._draw_order_card(
+                order, y, show_timer=False, track_for_click=True)
             y += 110
 
     def _draw_order_card(self, order: Order, y: int, show_timer: bool, track_for_click: bool = False):
@@ -409,17 +423,21 @@ class PhoneScreen:
             self.order_cards.append((card_rect, order))
 
         # Card background
-        pygame.draw.rect(self.screen, (45, 50, 60), card_rect, border_radius=10)
-        pygame.draw.rect(self.screen, (60, 70, 80), card_rect, 1, border_radius=10)
+        pygame.draw.rect(self.screen, (45, 50, 60),
+                         card_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (60, 70, 80),
+                         card_rect, 1, border_radius=10)
 
         # Customer name
-        name_surf = self.font.render(order.customer_location, True, self.text_color)
+        name_surf = self.font.render(
+            order.customer_location, True, self.text_color)
         self.screen.blit(name_surf, (card_rect.x + 12, card_rect.y + 10))
 
         # Plant count
         plant_count = sum(p.amount for p in order.plants)
         plants_text = f"{plant_count} kasvia"
-        plants_surf = self.small_font.render(plants_text, True, (160, 160, 160))
+        plants_surf = self.small_font.render(
+            plants_text, True, (160, 160, 160))
         self.screen.blit(plants_surf, (card_rect.x + 12, card_rect.y + 42))
 
         # Timer bar (for incoming orders)
@@ -457,7 +475,8 @@ class PhoneScreen:
                 card_rect.y + 28,
                 80, 38
             )
-            pygame.draw.rect(self.screen, self.accent_color, btn_rect, border_radius=8)
+            pygame.draw.rect(self.screen, self.accent_color,
+                             btn_rect, border_radius=8)
             btn_text = self.small_font.render("Hyväksy", True, (255, 255, 255))
             btn_text_rect = btn_text.get_rect(center=btn_rect.center)
             self.screen.blit(btn_text, btn_text_rect)

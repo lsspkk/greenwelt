@@ -28,7 +28,7 @@ class PhoneActiveOrderScreen:
         self.bottom_line_color = (100, 100, 100)
 
         # Fonts
-        self.title_font = pygame.font.Font(None, 48)
+        self.title_font = pygame.font.Font(None, 42)
         self.name_font = pygame.font.Font(None, 42)
         self.amount_font = pygame.font.Font(None, 36)
         self.button_font = pygame.font.Font(None, 32)
@@ -80,7 +80,8 @@ class PhoneActiveOrderScreen:
             return self.plant_image_cache[filename]
 
         # Build path to plant image
-        plant_path = Path(__file__).parent.parent.parent / "assets" / "plants" / "one" / filename
+        plant_path = Path(__file__).parent.parent.parent / \
+            "assets" / "plants" / "one" / filename
 
         try:
             image = pygame.image.load(str(plant_path)).convert_alpha()
@@ -162,15 +163,17 @@ class PhoneActiveOrderScreen:
 
         # Calculate areas within phone
         content_x = self.phone_rect.x + 20
-        content_y = self.phone_rect.y + 70  # Below phone header
+        content_y = self.phone_rect.y + 80  # Below phone header
         content_width = self.phone_rect.width - 40
 
-        navbar_height = 70
+        navbar_height = 120
         navbar_y = self.phone_rect.bottom - navbar_height - 10
 
         # Draw order location name at top
-        location_surf = self.name_font.render(self.order.customer_location, True, self.text_color)
-        location_rect = location_surf.get_rect(centerx=self.phone_rect.centerx, top=content_y)
+        location_surf = self.name_font.render(
+            self.order.customer_location, True, self.text_color)
+        location_rect = location_surf.get_rect(
+            centerx=self.phone_rect.centerx, top=content_y)
         screen.blit(location_surf, location_rect)
 
         # Draw top decorative line below location
@@ -185,7 +188,7 @@ class PhoneActiveOrderScreen:
 
         # Calculate image area (between top line and text area)
         image_area_y = line_y + line_height + 20
-        text_area_height = 100  # Space for name and amount
+        text_area_height = 50  # Space for name and amount
         bottom_line_y = navbar_y - 20 - line_height
         image_area_height = bottom_line_y - image_area_y - text_area_height - 20
 
@@ -200,7 +203,8 @@ class PhoneActiveOrderScreen:
 
             # Center the image
             img_x = content_x + (content_width - scaled_image.get_width()) // 2
-            img_y = image_area_y + (image_area_height - scaled_image.get_height()) // 2
+            img_y = image_area_y + \
+                (image_area_height - scaled_image.get_height()) // 2
             screen.blit(scaled_image, (img_x, img_y))
         else:
             # Draw placeholder if image not found
@@ -210,17 +214,22 @@ class PhoneActiveOrderScreen:
                 content_width - 100,
                 image_area_height - 40
             )
-            pygame.draw.rect(screen, (60, 64, 72), placeholder_rect, border_radius=10)
-            placeholder_text = self.name_font.render("(kuva puuttuu)", True, (150, 150, 150))
-            text_rect = placeholder_text.get_rect(center=placeholder_rect.center)
+            pygame.draw.rect(screen, (60, 64, 72),
+                             placeholder_rect, border_radius=10)
+            placeholder_text = self.name_font.render(
+                "(kuva puuttuu)", True, (150, 150, 150))
+            text_rect = placeholder_text.get_rect(
+                center=placeholder_rect.center)
             screen.blit(placeholder_text, text_rect)
 
         # Draw plant name
         text_y = bottom_line_y - text_area_height
         plant_name_text = f"{plant.name_fi} {plant.amount} kpl"
 
-        name_surf = self.name_font.render(plant_name_text, True, self.text_color)
-        name_rect = name_surf.get_rect(centerx=self.phone_rect.centerx, top=text_y)
+        name_surf = self.name_font.render(
+            plant_name_text, True, self.text_color)
+        name_rect = name_surf.get_rect(
+            centerx=self.phone_rect.centerx, top=text_y)
         screen.blit(name_surf, name_rect)
 
         # Draw bottom decorative line
@@ -236,14 +245,18 @@ class PhoneActiveOrderScreen:
 
     def _draw_navbar(self, screen: pygame.Surface, navbar_y: int):
         """Draw the bottom navigation bar with prev, back, and next buttons."""
-        button_height = 50
-        button_margin = 15
+        button_height = 70
+        button_margin = 45
 
         # Calculate button positions
-        navbar_width = self.phone_rect.width - 40
-        button_width = (navbar_width - button_margin * 2) // 3
+        button_width = 70
 
-        start_x = self.phone_rect.x + 20
+        # calculate: phone width - 3 x button width - 2 x margin
+        navbar_width = self.phone_rect.width - 30
+        button_area_width = (button_width * 3 + button_margin * 2)
+        # positioin buttons to the right bottom of the phone
+
+        start_x = self.phone_rect.x + (navbar_width - button_area_width)
 
         # Prev button (<-)
         self.prev_button_rect = pygame.Rect(
@@ -258,9 +271,11 @@ class PhoneActiveOrderScreen:
         prev_color = self.button_color if prev_enabled else (50, 54, 62)
         prev_text_color = self.text_color if prev_enabled else (100, 100, 100)
 
-        pygame.draw.rect(screen, prev_color, self.prev_button_rect, border_radius=8)
+        pygame.draw.rect(screen, prev_color,
+                         self.prev_button_rect, border_radius=8)
         prev_text = self.button_font.render("<=]", True, prev_text_color)
-        prev_text_rect = prev_text.get_rect(center=self.prev_button_rect.center)
+        prev_text_rect = prev_text.get_rect(
+            center=self.prev_button_rect.center)
         screen.blit(prev_text, prev_text_rect)
 
         # Back button (Takaisin)
@@ -271,9 +286,11 @@ class PhoneActiveOrderScreen:
             button_height
         )
 
-        pygame.draw.rect(screen, self.button_color, self.back_button_rect, border_radius=8)
+        pygame.draw.rect(screen, self.button_color,
+                         self.back_button_rect, border_radius=8)
         back_text = self.button_font.render("_o.o_", True, self.text_color)
-        back_text_rect = back_text.get_rect(center=self.back_button_rect.center)
+        back_text_rect = back_text.get_rect(
+            center=self.back_button_rect.center)
         screen.blit(back_text, back_text_rect)
 
         # Next button (->)
@@ -285,11 +302,14 @@ class PhoneActiveOrderScreen:
         )
 
         # Determine if button should be disabled
-        next_enabled = self.order is not None and self.current_plant_index < len(self.order.plants) - 1
+        next_enabled = self.order is not None and self.current_plant_index < len(
+            self.order.plants) - 1
         next_color = self.button_color if next_enabled else (50, 54, 62)
         next_text_color = self.text_color if next_enabled else (100, 100, 100)
 
-        pygame.draw.rect(screen, next_color, self.next_button_rect, border_radius=8)
+        pygame.draw.rect(screen, next_color,
+                         self.next_button_rect, border_radius=8)
         next_text = self.button_font.render("[=>", True, next_text_color)
-        next_text_rect = next_text.get_rect(center=self.next_button_rect.center)
+        next_text_rect = next_text.get_rect(
+            center=self.next_button_rect.center)
         screen.blit(next_text, next_text_rect)
