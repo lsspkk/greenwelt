@@ -3,6 +3,7 @@
 import esper
 from typing import List, Dict
 from shared.shared_components import Order, OrderState, PlantOrder
+from shared.debug_log import debug
 
 
 class OrderManager:
@@ -54,7 +55,7 @@ class OrderManager:
                     "order_id": "loc1_order1",
                     "send_time": 5.0,
                     "plants": [
-                        {"filename": "plant.png", "name_fi": "Kasvi", "name_en": "Plant", "amount": 2}
+                        {"plant_filename": "plant.png", "plant_name_fi": "Kasvi", "plant_name_en": "Plant", "amount": 2}
                     ]
                 }
             ]
@@ -63,16 +64,18 @@ class OrderManager:
         self.all_orders = {}
         self.available_orders = []
 
+        total_orders = 0
         for location_name, order_list in orders_data.items():
             self.all_orders[location_name] = []
 
             for order_data in order_list:
                 plants = []
                 for plant_data in order_data.get("plants", []):
+                    # Support both old and new key formats
                     plant = PlantOrder(
-                        filename=plant_data.get("filename", ""),
-                        name_fi=plant_data.get("name_fi", ""),
-                        name_en=plant_data.get("name_en", ""),
+                        filename=plant_data.get("plant_filename", plant_data.get("filename", "")),
+                        name_fi=plant_data.get("plant_name_fi", plant_data.get("name_fi", "")),
+                        name_en=plant_data.get("plant_name_en", plant_data.get("name_en", "")),
                         amount=plant_data.get("amount", 1)
                     )
                     plants.append(plant)
@@ -91,6 +94,10 @@ class OrderManager:
 
                 self.all_orders[location_name].append(order)
                 self.available_orders.append(order)
+                total_orders += 1
+
+        debug.info(f"Orders loaded: {total_orders} orders from {len(self.all_orders)} locations")
+        debug.info(f"Orders in available pool: {len(self.available_orders)}")
 
     def set_config(self, batch_size: int, batch_delay: float, accept_time: float,
                    orders_required: int = 0, plants_required: int = 0):
@@ -102,18 +109,40 @@ class OrderManager:
         self.plants_required = plants_required
 
     def select_next_batch(self):
-        """Select next batch of orders from available pool."""
+        """Select next batch of orders from available pool, avoiding same location."""
         if not self.available_orders:
+            debug.debug("No available orders for next batch")
             return
 
         batch_count = min(self.batch_size, len(self.available_orders))
+        debug.info(f"Selecting batch of {batch_count} orders (available: {len(self.available_orders)})")
 
-        for _ in range(batch_count):
-            order = self.available_orders.pop(0)
+        selected_locations = set()
+        selected_orders = []
+
+        # First pass: pick orders from unique locations
+        for order in self.available_orders[:]:
+            if len(selected_orders) >= batch_count:
+                break
+            if order.customer_location not in selected_locations:
+                selected_locations.add(order.customer_location)
+                selected_orders.append(order)
+
+        # Second pass: if we still need more, allow duplicates
+        if len(selected_orders) < batch_count:
+            for order in self.available_orders[:]:
+                if len(selected_orders) >= batch_count:
+                    break
+                if order not in selected_orders:
+                    selected_orders.append(order)
+
+        # Move selected orders to incoming
+        for order in selected_orders:
+            self.available_orders.remove(order)
             order.state = OrderState.INCOMING
-            # Set countdown from the order's send_time
             order.countdown_to_visible = order.send_time
             self.incoming_orders.append(order)
+            debug.info(f"  -> INCOMING: {order.order_id} ({order.customer_location}) countdown={order.send_time}s")
 
         self.countdown_to_incoming = self.batch_delay
 
@@ -126,6 +155,7 @@ class OrderManager:
         order.countdown_to_visible = -1.0
         order.countdown_to_available = self.accept_time
         self.visible_orders.append(order)
+        debug.info(f"Order VISIBLE: {order.order_id} ({order.customer_location}) - accept within {self.accept_time}s")
 
     def move_to_available(self, order: Order):
         """Move expired order back to available pool."""
@@ -136,6 +166,7 @@ class OrderManager:
         order.countdown_to_visible = -1.0
         order.countdown_to_available = -1.0
         self.available_orders.append(order)
+        debug.info(f"Order EXPIRED: {order.order_id} returned to available pool")
 
     def accept_order(self, order: Order):
         """Player accepts an order."""
@@ -146,6 +177,7 @@ class OrderManager:
         order.countdown_to_visible = -1.0
         order.countdown_to_available = -1.0
         self.accepted_orders.append(order)
+        debug.info(f"Order ACCEPTED: {order.order_id} ({order.customer_location})")
 
     def complete_order(self, order: Order, plants_count: int):
         """Mark order as completed after delivery."""
@@ -203,8 +235,16 @@ class OrderSystem(esper.Processor):
 
     def __init__(self, order_manager: OrderManager):
         self.order_manager = order_manager
+        self.status_log_timer = 0.0
+        self.status_log_interval = 5.0  # Log status every 5 seconds
 
     def process(self, dt: float):
+        # Periodic status logging
+        self.status_log_timer += dt
+        if self.status_log_timer >= self.status_log_interval:
+            self.status_log_timer = 0.0
+            m = self.order_manager
+            debug.debug(f"Orders: avail={len(m.available_orders)} incoming={len(m.incoming_orders)} visible={len(m.visible_orders)} accepted={len(m.accepted_orders)}")
         manager = self.order_manager
 
         # If no incoming or visible orders, count down to next batch

@@ -1,0 +1,14 @@
+{
+    "name": "Map 1 - City Center",
+    "total_orders": 20,
+    "orders_required": 10,
+    "plants_required": 0,
+    "batch_size": 3,
+    "batch_delay": 10.0,
+    "accept_time": 15.0,
+    "greenery": {
+        "enabled": true,
+        "green_color": [60, 140, 60],
+        "white_threshold": 200
+    }
+}

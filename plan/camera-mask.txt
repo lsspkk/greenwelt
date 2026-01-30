@@ -1,0 +1,655 @@
+================================================================================
+CAMERA MASK FEATURE PLAN - Plant Courier Game
+================================================================================
+
+GOAL: Allow players to take selfies with a green plant glasses mask overlay
+using their device camera, save to local storage, and display in game.
+
+================================================================================
+PART 1: OVERVIEW & ARCHITECTURE
+================================================================================
+
+Flow:
+1. Player clicks Camera button on phone UI
+2. Python calls JavaScript to open camera overlay
+3. JavaScript shows live webcam feed with mask overlay
+4. Player clicks capture button
+5. JavaScript captures frame with mask, saves to localStorage
+6. JavaScript signals Python with base64 image data
+7. Python converts to pygame.Surface and displays as portrait
+
+Key Files to Create/Modify:
+- web/js.js           (camera capture + mask overlay)
+- web/index.html      (camera UI elements, hidden by default)
+- assets/masks/plant_glasses.png  (transparent PNG mask)
+- screens/map/map_ui.py           (handle captured image)
+- shared/camera_bridge.py         (new file: JS<->Python bridge)
+
+================================================================================
+PART 2: JAVASCRIPT CAMERA SYSTEM
+================================================================================
+
+Location: web/js.js
+
+2.1 CAMERA OVERLAY UI (HTML elements added dynamically)
+------------------------------------------------------
+
+Create a full-screen overlay div containing:
+- Video element (for live webcam stream)
+- Canvas element (for compositing video + mask)
+- Mask image overlay (CSS positioned on top)
+- Capture button (big green button at bottom)
+- Close button (X in corner)
+
+HTML structure (added via JavaScript):
+
+    <div id="camera-overlay" style="display:none; position:fixed;
+         top:0; left:0; width:100%; height:100%;
+         background:black; z-index:9999;">
+
+        <!-- Video preview with mask overlay -->
+        <div id="camera-container" style="position:relative;
+             width:100%; height:calc(100% - 80px); overflow:hidden;">
+
+            <video id="camera-video" autoplay playsinline
+                   style="width:100%; height:100%; object-fit:cover;
+                          transform:scaleX(-1);"></video>
+
+            <img id="camera-mask" src="assets/masks/plant_glasses.png"
+                 style="position:absolute; top:50%; left:50%;
+                        transform:translate(-50%, -50%) scaleX(-1);
+                        width:300px; height:auto; pointer-events:none;">
+        </div>
+
+        <!-- Bottom controls -->
+        <div id="camera-controls" style="height:80px; display:flex;
+             justify-content:center; align-items:center; gap:20px;">
+
+            <button id="camera-capture" style="width:64px; height:64px;
+                    border-radius:50%; background:#4CAF50; border:4px solid white;">
+            </button>
+
+            <button id="camera-close" style="position:absolute; top:10px;
+                    right:10px; background:rgba(0,0,0,0.5); color:white;
+                    border:none; padding:10px 15px; font-size:20px;">
+                X
+            </button>
+        </div>
+    </div>
+
+
+2.2 CAMERA FUNCTIONS
+--------------------
+
+// Global variables for camera state
+let cameraStream = null;
+let cameraOverlay = null;
+
+// Initialize camera overlay (call once at startup)
+function initCameraOverlay() {
+    // Create overlay HTML dynamically
+    const overlay = document.createElement('div');
+    overlay.id = 'camera-overlay';
+    overlay.innerHTML = `... HTML from above ...`;
+    overlay.style.display = 'none';
+    document.body.appendChild(overlay);
+
+    cameraOverlay = overlay;
+
+    // Bind event listeners
+    document.getElementById('camera-capture').onclick = capturePhoto;
+    document.getElementById('camera-close').onclick = closeCamera;
+}
+
+// Open camera (called from Python)
+async function openCamera() {
+    try {
+        // Request camera access (front-facing for selfies)
+        const constraints = {
+            video: {
+                facingMode: 'user',
+                width: { ideal: 480 },   // Low resolution is fine
+                height: { ideal: 480 }
+            },
+            audio: false
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Connect stream to video element
+        const video = document.getElementById('camera-video');
+        video.srcObject = cameraStream;
+
+        // Show overlay
+        cameraOverlay.style.display = 'block';
+
+        // Hide pygame canvas while camera is active
+        document.getElementById('canvas').style.display = 'none';
+
+        return true;
+
+    } catch (error) {
+        console.error('Camera access denied:', error);
+        return false;
+    }
+}
+
+// Close camera and cleanup
+function closeCamera() {
+    // Stop all video tracks
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    // Hide overlay
+    cameraOverlay.style.display = 'none';
+
+    // Show pygame canvas again
+    document.getElementById('canvas').style.display = 'block';
+}
+
+// Capture photo with mask overlay
+function capturePhoto() {
+    const video = document.getElementById('camera-video');
+    const mask = document.getElementById('camera-mask');
+
+    // Create canvas for compositing
+    const canvas = document.createElement('canvas');
+    const size = 200;  // Output size (small is fine)
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+
+    // Mirror the context (selfie cameras are mirrored)
+    ctx.translate(size, 0);
+    ctx.scale(-1, 1);
+
+    // Draw video frame (cropped to square)
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const crop = Math.min(vw, vh);
+    const sx = (vw - crop) / 2;
+    const sy = (vh - crop) / 2;
+
+    ctx.drawImage(video, sx, sy, crop, crop, 0, 0, size, size);
+
+    // Reset transform for mask
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Draw mask centered (assumes mask is square-ish)
+    const maskW = 150;  // Mask width on canvas
+    const maskH = mask.naturalHeight * (maskW / mask.naturalWidth);
+    const mx = (size - maskW) / 2;
+    const my = (size - maskH) / 2 - 20;  // Slightly higher for glasses
+
+    ctx.drawImage(mask, mx, my, maskW, maskH);
+
+    // Convert to base64 data URL
+    const dataUrl = canvas.toDataURL('image/png');
+
+    // Save to localStorage
+    localStorage.setItem('greenwelt_selfie', dataUrl);
+    localStorage.setItem('greenwelt_selfie_time', Date.now().toString());
+
+    console.log('Photo captured and saved to localStorage');
+
+    // Close camera
+    closeCamera();
+
+    // Notify Python that photo is ready
+    // The Python code will poll localStorage or we set a global flag
+    window.greenweltPhotoReady = dataUrl;
+
+    return dataUrl;
+}
+
+// Check if there's a saved selfie (called from Python)
+function getSavedSelfie() {
+    return localStorage.getItem('greenwelt_selfie');
+}
+
+// Clear saved selfie
+function clearSavedSelfie() {
+    localStorage.removeItem('greenwelt_selfie');
+    localStorage.removeItem('greenwelt_selfie_time');
+}
+
+
+2.3 MASK POSITIONING OPTIONS
+----------------------------
+
+Option A: Fixed center position (simplest)
+- Mask always centered in frame
+- Player moves their face to align
+- Works but less user-friendly
+
+Option B: Face detection with tracking (complex)
+- Use face-api.js or similar
+- Track face position in real-time
+- Move mask to follow face
+- Much more complex, larger bundle size
+
+Option C: Manual drag positioning
+- Let player drag the mask to position it
+- Store position preference
+- Good balance of UX and complexity
+
+RECOMMENDATION: Start with Option A (fixed center), upgrade later if needed.
+
+
+================================================================================
+PART 3: MASK ASSET CREATION
+================================================================================
+
+Location: assets/masks/plant_glasses.png
+
+Requirements:
+- Transparent PNG
+- Size: 300x150 pixels (approximate)
+- Design: Green plant/leaf-shaped glasses
+- Transparent background
+- Bright green (#4CAF50) or nature green (#2E7D32)
+
+Design suggestions:
+- Two leaf-shaped "lenses"
+- Thin vine connecting them (bridge of glasses)
+- Maybe small leaves/sprouts coming off the sides
+- Keep it simple and recognizable at small sizes
+
+Alternative masks to create later:
+- assets/masks/flower_crown.png
+- assets/masks/plant_beard.png
+- assets/masks/leaf_hat.png
+
+
+================================================================================
+PART 4: PYTHON-JAVASCRIPT BRIDGE
+================================================================================
+
+Location: shared/camera_bridge.py (new file)
+
+"""
+Camera Bridge - Handles communication between Python and JavaScript
+for camera capture functionality in WASM/browser environment.
+"""
+
+import base64
+import io
+
+# Try to import pygame and js module
+try:
+    import pygame
+except ImportError:
+    pygame = None
+
+try:
+    import js
+    HAS_JS = True
+except ImportError:
+    js = None
+    HAS_JS = False
+
+from shared.debug_log import debug
+
+
+class CameraBridge:
+    """
+    Bridge class for camera functionality between Python and JavaScript.
+    Only works in WASM/browser environment with js module available.
+    """
+
+    def __init__(self):
+        self.is_available = HAS_JS
+        self.last_photo = None
+        self.on_photo_captured = None  # Callback when photo is ready
+
+    def open_camera(self):
+        """
+        Request JavaScript to open the camera overlay.
+        Returns True if camera was opened, False otherwise.
+        """
+        if not self.is_available:
+            debug.info("Camera not available (not in browser)")
+            return False
+
+        try:
+            result = js.openCamera()
+            debug.info(f"Camera open request: {result}")
+            return bool(result)
+        except Exception as e:
+            debug.error(f"Failed to open camera: {e}")
+            return False
+
+    def check_for_photo(self):
+        """
+        Check if a new photo has been captured.
+        Call this periodically from the game loop.
+        Returns pygame.Surface if photo is ready, None otherwise.
+        """
+        if not self.is_available:
+            return None
+
+        try:
+            # Check if JS has flagged a new photo
+            photo_data = js.window.greenweltPhotoReady
+
+            if photo_data:
+                # Clear the flag
+                js.window.greenweltPhotoReady = None
+
+                # Convert to pygame surface
+                surface = self._data_url_to_surface(photo_data)
+
+                if surface:
+                    self.last_photo = surface
+                    debug.info("Photo captured and converted to surface")
+
+                    # Call callback if set
+                    if self.on_photo_captured:
+                        self.on_photo_captured(surface)
+
+                    return surface
+
+        except Exception as e:
+            debug.error(f"Error checking for photo: {e}")
+
+        return None
+
+    def get_saved_selfie(self):
+        """
+        Load a previously saved selfie from localStorage.
+        Returns pygame.Surface if found, None otherwise.
+        """
+        if not self.is_available:
+            return None
+
+        try:
+            data_url = js.getSavedSelfie()
+
+            if data_url:
+                surface = self._data_url_to_surface(data_url)
+                if surface:
+                    self.last_photo = surface
+                    return surface
+
+        except Exception as e:
+            debug.error(f"Error loading saved selfie: {e}")
+
+        return None
+
+    def _data_url_to_surface(self, data_url):
+        """
+        Convert a base64 data URL to a pygame.Surface.
+
+        data_url format: "data:image/png;base64,iVBORw0KGgo..."
+        """
+        if pygame is None:
+            return None
+
+        try:
+            # Extract base64 part from data URL
+            # Format: data:image/png;base64,<base64-data>
+            if ',' in data_url:
+                header, base64_data = data_url.split(',', 1)
+            else:
+                base64_data = data_url
+
+            # Decode base64 to bytes
+            image_bytes = base64.b64decode(base64_data)
+
+            # Create BytesIO object for pygame to read
+            image_buffer = io.BytesIO(image_bytes)
+
+            # Load as pygame surface
+            surface = pygame.image.load(image_buffer)
+
+            return surface
+
+        except Exception as e:
+            debug.error(f"Failed to convert data URL to surface: {e}")
+            return None
+
+
+# Global singleton instance
+camera_bridge = CameraBridge()
+
+
+================================================================================
+PART 5: INTEGRATION WITH GAME CODE
+================================================================================
+
+5.1 MODIFY map_ui.py
+--------------------
+
+Location: screens/map/map_ui.py
+
+Changes needed:
+
+A) Import camera bridge at top of file:
+
+    from shared.camera_bridge import camera_bridge
+
+
+B) Modify __init__ to load saved selfie:
+
+    def __init__(self, ...):
+        # ... existing code ...
+
+        # Try to load saved selfie from localStorage
+        saved_selfie = camera_bridge.get_saved_selfie()
+        if saved_selfie:
+            self.set_player_portrait(saved_selfie)
+
+        # Set callback for when new photo is captured
+        camera_bridge.on_photo_captured = self._on_selfie_captured
+
+
+C) Add callback method:
+
+    def _on_selfie_captured(self, surface):
+        """Called when a new selfie is captured from camera."""
+        self.set_player_portrait(surface)
+
+
+D) Modify _on_camera_click to use bridge:
+
+    def _on_camera_click(self):
+        """Called when camera button is clicked on the phone."""
+        camera_bridge.open_camera()
+
+
+E) Add photo check to update loop (in MapScreen or MapUI):
+
+    def update(self, dt):
+        # ... existing update code ...
+
+        # Check if camera captured a new photo
+        camera_bridge.check_for_photo()
+
+
+5.2 MODIFY phone.py (if needed)
+-------------------------------
+
+The phone screen may need to close when camera opens, since the
+camera overlay covers the whole screen.
+
+In PhoneScreen.handle_input(), after camera click:
+
+    if self.camera_button_rect.collidepoint(touch_pos):
+        if self.on_camera_click:
+            self.on_camera_click()
+        # Return signal to close phone UI
+        return "close_for_camera"
+
+
+================================================================================
+PART 6: WEB FILES SETUP
+================================================================================
+
+6.1 UPDATE web/index.html
+-------------------------
+
+Add initialization call after pygbag loads:
+
+    <script>
+        // Initialize camera overlay after page loads
+        window.addEventListener('load', function() {
+            initCameraOverlay();
+        });
+    </script>
+
+
+6.2 UPDATE web/js.js
+--------------------
+
+Add all camera functions from Part 2.2 above.
+
+Make sure functions are globally accessible (not in a module):
+
+    // Camera functions - must be global for Python to call
+    window.openCamera = openCamera;
+    window.closeCamera = closeCamera;
+    window.getSavedSelfie = getSavedSelfie;
+    window.clearSavedSelfie = clearSavedSelfie;
+
+
+================================================================================
+PART 7: BUILD CONSIDERATIONS
+================================================================================
+
+7.1 ASSET BUNDLING
+------------------
+
+The mask PNG must be accessible to JavaScript. Options:
+
+Option A: Serve from assets folder (recommended)
+- Put mask in assets/masks/plant_glasses.png
+- Reference in JS as 'assets/masks/plant_glasses.png'
+- Pygbag bundles assets folder automatically
+
+Option B: Embed as base64 in JS
+- Convert PNG to base64 string
+- Embed directly in js.js file
+- No additional file loading needed
+- Slightly larger JS file
+
+
+7.2 CAMERA PERMISSIONS
+----------------------
+
+Browser camera access requires:
+- HTTPS (or localhost for testing)
+- User permission grant
+- Handle permission denied gracefully
+
+
+7.3 MOBILE CONSIDERATIONS
+-------------------------
+
+- Use facingMode: 'user' for front camera (selfies)
+- Add 'playsinline' attribute to video for iOS
+- Test on both Android and iOS Safari
+
+
+================================================================================
+PART 8: TESTING PLAN
+================================================================================
+
+8.1 LOCAL TESTING
+-----------------
+
+1. Run with --serve flag: uv run python build.py --serve
+2. Access via localhost (camera works on localhost)
+3. Test camera permission prompt
+4. Test photo capture
+5. Test localStorage persistence (refresh page)
+6. Test portrait display in game
+
+
+8.2 DEPLOYMENT TESTING
+----------------------
+
+1. Build and deploy to GitHub Pages
+2. Must be HTTPS for camera access
+3. Test on desktop Chrome/Firefox
+4. Test on mobile Chrome
+5. Test on mobile Safari (iOS)
+
+
+8.3 TEST CASES
+--------------
+
+- [ ] Camera permission denied -> graceful fallback
+- [ ] Camera not available (no camera) -> error message
+- [ ] Photo captured -> displayed in portrait
+- [ ] Page refresh -> saved photo persists
+- [ ] Multiple photos -> latest one used
+- [ ] Close camera without capture -> return to game
+- [ ] Mask visible on captured image
+
+
+================================================================================
+PART 9: IMPLEMENTATION ORDER
+================================================================================
+
+Phase 1: Basic Infrastructure
+1. Create assets/masks/plant_glasses.png (simple placeholder)
+2. Create shared/camera_bridge.py
+3. Add camera functions to web/js.js
+4. Update web/index.html with camera overlay
+
+Phase 2: Integration
+5. Modify map_ui.py to use camera_bridge
+6. Test locally with --serve
+
+Phase 3: Polish
+7. Create proper mask graphic
+8. Add loading/error states
+9. Test on mobile devices
+10. Deploy to production
+
+
+================================================================================
+PART 10: FUTURE ENHANCEMENTS
+================================================================================
+
+Once basic camera works, consider:
+
+1. Multiple mask options (let player choose)
+2. Face detection for mask positioning
+3. Photo gallery (save multiple selfies)
+4. Share to social media
+5. Achievement for first selfie
+6. Mask unlocks through gameplay
+
+
+================================================================================
+APPENDIX: ALTERNATIVE APPROACHES CONSIDERED
+================================================================================
+
+A. WebRTC Data Channels
+   - Too complex for simple photo capture
+   - Overkill for single-image transfer
+
+B. Server-side storage
+   - Requires backend infrastructure
+   - localStorage is simpler for MVP
+
+C. IndexedDB for images
+   - Better for large data
+   - localStorage is fine for single small image
+
+D. Canvas toBlob instead of toDataURL
+   - More efficient for large images
+   - toDataURL is simpler and image is small
+
+E. MediaStream Image Capture API
+   - Not supported in all browsers
+   - Video frame capture is more compatible
+
+
+================================================================================
+END OF PLAN
+================================================================================

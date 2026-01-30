@@ -59,6 +59,12 @@ class PlayerOnMap:
 
 
 @dataclass
+class GreeneryLayer:
+    """Green overlay that covers white areas of the map (not roads)"""
+    surface: pygame.Surface = None  # The greenery surface with current opacity
+
+
+@dataclass
 class Camera:
     """Camera for viewing the map with zoom"""
     # Camera center position in world coordinates

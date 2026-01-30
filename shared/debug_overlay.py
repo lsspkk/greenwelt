@@ -11,11 +11,11 @@ class DebugOverlay:
         self.font = pygame.font.Font(None, 36)
         self.title_font = pygame.font.Font(None, 52)
 
-        # Icon button (top-left corner)
-        self.icon_rect = pygame.Rect(30, 30, 70, 70)
 
         # Overlay panel
         sw, sh = screen.get_size()
+        # Icon button (bottom-left corner)
+        self.icon_rect = pygame.Rect(30, sh - 100, 70, 70)
         self.panel_rect = pygame.Rect(30, 120, sw - 60, sh - 200)
 
         # Buttons inside overlay

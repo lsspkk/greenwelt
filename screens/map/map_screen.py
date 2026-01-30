@@ -4,9 +4,10 @@ import esper
 import json
 from typing import Optional, List, Dict
 
-from screens.map.order_manager import OrderManager
+from screens.map.order_manager import OrderManager, OrderSystem
+from screens.map.greenery_system import GreenerySystem
 from shared.shared_components import Position, Velocity, DotRenderable
-from .components import MapBackground, RoadLayer, PlayerOnMap, MapMarker, Camera
+from .components import MapBackground, RoadLayer, PlayerOnMap, MapMarker, Camera, GreeneryLayer
 from .road_collision_system import RoadCollisionSystem
 from .map_render_system import MapRenderSystem
 
@@ -29,6 +30,9 @@ class MapScreen:
         self.camera_pos_x = 0
         self.camera_pos_y = 0
         self.order_manager = None
+        self.greenery_system = None
+        self.greenery_entity = None
+        self.map_config = {}
 
     def initialize(self):
         """Set up the ECS world for this map"""
@@ -57,17 +61,51 @@ class MapScreen:
                 screen_height=screen_h
             )
         )
+
+        # Create greenery entity (surface will be set later)
+        self.greenery_entity = esper.create_entity(
+            GreeneryLayer()
+        )
+
+        # Create order manager
         self.order_manager = OrderManager()
+
+        # Add order system to ECS
+        esper.add_processor(OrderSystem(self.order_manager), priority=2)
+
         self.is_initialized = True
+
+    def load_config(self, json_path: str):
+        """Load map configuration from JSON file"""
+        from shared.debug_log import debug
+        try:
+            with open(json_path, "r") as f:
+                self.map_config = json.load(f)
+
+            # Apply config to order manager
+            if self.order_manager is not None:
+                self.order_manager.set_config(
+                    batch_size=self.map_config.get("batch_size", 3),
+                    batch_delay=self.map_config.get("batch_delay", 10.0),
+                    accept_time=self.map_config.get("accept_time", 15.0),
+                    orders_required=self.map_config.get("orders_required", 10),
+                    plants_required=self.map_config.get("plants_required", 0)
+                )
+
+            debug.info(f"Loaded map config from {json_path}")
+        except Exception as e:
+            debug.error(f"Failed to load map config: {e}")
 
     def load_orders(self, json_path: str):
         """Load orders from JSON file"""
+        from shared.debug_log import debug
         try:
             with open(json_path, "r") as f:
                 orders_data = json.load(f)
             self.order_manager.load_orders(orders_data)
+            debug.info(f"Loaded orders from {json_path}")
         except Exception as e:
-            print(f"Failed to load orders: {e}")
+            debug.error(f"Failed to load orders: {e}")
 
     def load_map_image(self, image_path: str):
         """Load the background image for this map (render system handles zoom)"""
@@ -150,6 +188,39 @@ class MapScreen:
 
         except Exception as e:
             print(f"Failed to load roads: {e}")
+
+    def initialize_greenery(self):
+        """Initialize the greenery system after map and roads are loaded"""
+        from shared.debug_log import debug
+
+        # Get total orders from config
+        total_orders = self.map_config.get("total_orders", 20)
+
+        # Create greenery system
+        self.greenery_system = GreenerySystem(self.order_manager, total_orders)
+
+        # Apply greenery config if present
+        greenery_config = self.map_config.get("greenery", {})
+        if greenery_config.get("enabled", True):
+            if "green_color" in greenery_config:
+                self.greenery_system.base_green_color = tuple(greenery_config["green_color"])
+
+        # Get map image dimensions
+        bg = esper.component_for_entity(self.map_entity, MapBackground)
+
+        if bg.image is not None:
+            map_width = bg.image.get_width()
+            map_height = bg.image.get_height()
+
+            # Initialize the greenery system with map dimensions
+            self.greenery_system.initialize(map_width, map_height)
+
+            # Set the surface on the greenery entity
+            if self.greenery_entity is not None:
+                greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
+                greenery_layer.surface = self.greenery_system.get_surface()
+
+            debug.info(f"Greenery system initialized (total_orders={total_orders})")
 
     def load_locations(self, json_path: str):
         """Load location markers from JSON file"""
@@ -288,6 +359,15 @@ class MapScreen:
                 camera = esper.component_for_entity(self.camera_entity, Camera)
                 camera.x = self.camera_pos_x
                 camera.y = self.camera_pos_y
+
+        # Update greenery intensity based on completed orders
+        if self.greenery_system is not None:
+            self.greenery_system.update()
+
+            # Update the greenery entity surface
+            if self.greenery_entity is not None:
+                greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
+                greenery_layer.surface = self.greenery_system.get_surface()
 
         esper.process(dt)
         esper.switch_world(self.world_name)

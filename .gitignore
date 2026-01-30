@@ -27,6 +27,7 @@ dist/
 
 # Pygbag web build
 assets/web-cache/
+*-pygbag.png
 
 # Misc
 *.log

@@ -1,15 +1,19 @@
 import pygame
 from typing import Optional, List
 from shared.shared_components import Order, OrderState
+from shared.debug_log import debug
+from screens.dialogs.phone_active_order import PhoneActiveOrderScreen
 
 
 class PhoneScreen:
     """
-    Phone UI overlay for viewing orders.
+    iPuhelin - A kids' watch/device UI overlay for viewing orders.
 
     Can be opened in two modes:
     - "incoming": Show visible incoming orders with accept buttons
     - "accepted": Show accepted orders and inventory
+
+    Closed by clicking outside the device frame.
     """
 
     def __init__(self, screen: pygame.Surface):
@@ -19,8 +23,8 @@ class PhoneScreen:
 
         # Phone frame dimensions (centered on screen)
         screen_w, screen_h = screen.get_size()
-        phone_w = 600
-        phone_h = 800
+        phone_w = 500
+        phone_h = 700
         self.phone_rect = pygame.Rect(
             (screen_w - phone_w) // 2,
             (screen_h - phone_h) // 2,
@@ -28,25 +32,54 @@ class PhoneScreen:
             phone_h
         )
 
+        # Device frame (outer bezel)
+        bezel_padding = 12
+        self.bezel_rect = self.phone_rect.inflate(bezel_padding * 2, bezel_padding * 2)
+
         # Fonts
-        self.title_font = pygame.font.Font(None, 48)
+        self.logo_font = pygame.font.Font(None, 52)
+        self.title_font = pygame.font.Font(None, 40)
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 28)
+        self.button_font = pygame.font.Font(None, 32)
 
-        # Colors
-        self.bg_color = (40, 44, 52)
-        self.header_color = (60, 64, 72)
+        # Colors - device theme (greenish kids device)
+        self.bezel_color = (60, 140, 100)  # Green bezel
+        self.bezel_edge_color = (40, 100, 70)  # Darker edge
+        self.screen_color = (30, 35, 45)  # Dark screen
+        self.header_color = (40, 50, 60)
         self.text_color = (255, 255, 255)
         self.accent_color = (100, 180, 100)
+        self.logo_color = (180, 255, 180)  # Light green for logo
+
+        # Bottom navbar button rects
+        self.nav_button_rect = pygame.Rect(0, 0, 0, 0)
+        self.camera_button_rect = pygame.Rect(0, 0, 0, 0)
+
+        self.accept_buttons: List[tuple[pygame.Rect, Order]] = []
+
+        # Track clickable order cards for accepted orders
+        self.order_cards: List[tuple[pygame.Rect, Order]] = []
+
+        # Active order detail screen
+        self.active_order_screen = PhoneActiveOrderScreen(self.phone_rect)
+
+        # Callback for camera (to be set by parent)
+        self.on_camera_click = None
+
+        # Callback for navigation (to be set by parent)
+        self.on_nav_click = None
 
     def open(self, mode: str = "accepted"):
         """Open the phone screen."""
         self.mode = mode
         self.visible = True
+        debug.info(f"iPuhelin opened in '{mode}' mode")
 
     def close(self):
         """Close the phone screen."""
         self.visible = False
+        self.active_order_screen.close()
 
     def handle_input(self, input_mgr, order_manager) -> Optional[str]:
         """
@@ -56,18 +89,52 @@ class PhoneScreen:
         if not self.visible:
             return None
 
-        # Close button (top right of phone)
-        close_rect = pygame.Rect(
-            self.phone_rect.right - 50,
-            self.phone_rect.top + 10,
-            40, 40
-        )
-        if input_mgr.clicked_in_rect(close_rect):
-            self.close()
-            return "phone_closed"
+        # If active order screen is visible, handle its input first
+        if self.active_order_screen.visible:
+            result = self.active_order_screen.handle_input(input_mgr)
+            if result == "back_to_orders":
+                # Returned to order list
+                return None
+            if result is not None:
+                return result
+            # Active order screen is showing, don't process other inputs
+            return None
 
-        # TODO: Handle order item clicks
-        # TODO: Handle accept button clicks
+        # Check if click is outside the device (bezel) - close phone
+        if input_mgr.clicked_this_frame:
+            click_pos = input_mgr.click_pos
+            if click_pos is not None:
+                if not self.bezel_rect.collidepoint(click_pos):
+                    self.close()
+                    return "phone_closed"
+
+        # Check bottom navbar buttons
+        if input_mgr.clicked_in_rect(self.nav_button_rect):
+            debug.info("Navigation button clicked")
+            if self.on_nav_click:
+                self.on_nav_click()
+            return "nav_clicked"
+
+        if input_mgr.clicked_in_rect(self.camera_button_rect):
+            debug.info("Camera button clicked")
+            if self.on_camera_click:
+                self.on_camera_click()
+            return "camera_clicked"
+
+        # Check order card clicks (for accepted orders in "accepted" mode)
+        if self.mode == "accepted":
+            for card_rect, order in self.order_cards:
+                if input_mgr.clicked_in_rect(card_rect):
+                    debug.info(f"Order card clicked: {order.order_id}")
+                    self.active_order_screen.open(order)
+                    return "order_opened"
+
+        # Check accept button clicks
+        for btn_rect, order in self.accept_buttons:
+            if input_mgr.clicked_in_rect(btn_rect):
+                debug.info(f"Accept button clicked for order {order.order_id}")
+                order_manager.accept_order(order)
+                return "order_accepted"
 
         return None
 
@@ -76,84 +143,231 @@ class PhoneScreen:
         if not self.visible:
             return
 
+        # Clear tracked buttons for click detection
+        self.accept_buttons = []
+        self.order_cards = []
+
         # Dim background
         dim_surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         dim_surface.fill((0, 0, 0, 150))
         self.screen.blit(dim_surface, (0, 0))
 
-        # Phone background
-        pygame.draw.rect(self.screen, self.bg_color,
-                         self.phone_rect, border_radius=20)
-        pygame.draw.rect(self.screen, self.header_color,
-                         self.phone_rect, 3, border_radius=20)
+        # Draw device bezel (outer frame)
+        self._draw_device_frame()
 
-        # Header
+        # If active order screen is visible, draw it instead of order list
+        if self.active_order_screen.visible:
+            self._draw_header_minimal()
+            self.active_order_screen.draw(self.screen)
+            self._draw_bottom_navbar()
+            return
+
+        # Draw header with logo
+        self._draw_header()
+
+        # Draw content based on mode
+        if self.mode == "incoming":
+            self._draw_incoming_orders(order_manager)
+        else:
+            self._draw_accepted_orders(order_manager)
+
+        # Draw bottom navbar
+        self._draw_bottom_navbar()
+
+    def _draw_device_frame(self):
+        """Draw the device bezel/frame to make it look like a kids' watch."""
+        # Outer bezel shadow
+        shadow_rect = self.bezel_rect.move(4, 4)
+        pygame.draw.rect(self.screen, (20, 20, 20), shadow_rect, border_radius=30)
+
+        # Main bezel
+        pygame.draw.rect(self.screen, self.bezel_color, self.bezel_rect, border_radius=28)
+
+        # Bezel edge highlight (top-left)
+        highlight_rect = self.bezel_rect.inflate(-4, -4)
+        pygame.draw.rect(self.screen, (80, 160, 120), highlight_rect, 2, border_radius=26)
+
+        # Inner screen area
+        pygame.draw.rect(self.screen, self.screen_color, self.phone_rect, border_radius=16)
+
+        # Screen edge (inset effect)
+        pygame.draw.rect(self.screen, (20, 25, 35), self.phone_rect, 2, border_radius=16)
+
+        # Draw small decorative elements on bezel (like watch buttons)
+        # Left side "button"
+        left_btn = pygame.Rect(
+            self.bezel_rect.left - 6,
+            self.bezel_rect.centery - 30,
+            8,
+            60
+        )
+        pygame.draw.rect(self.screen, self.bezel_edge_color, left_btn, border_radius=3)
+
+        # Right side "button"
+        right_btn = pygame.Rect(
+            self.bezel_rect.right - 2,
+            self.bezel_rect.centery - 20,
+            8,
+            40
+        )
+        pygame.draw.rect(self.screen, self.bezel_edge_color, right_btn, border_radius=3)
+
+    def _draw_header(self):
+        """Draw header with iPuhelin logo."""
         header_rect = pygame.Rect(
             self.phone_rect.x,
             self.phone_rect.y,
             self.phone_rect.width,
-            60
+            70
         )
         pygame.draw.rect(self.screen, self.header_color, header_rect,
-                         border_top_left_radius=20, border_top_right_radius=20)
+                         border_top_left_radius=16, border_top_right_radius=16)
 
-        # Title and glyphs
+        # iPuhelin logo (stylized)
+        self._draw_logo(self.phone_rect.x + 15, self.phone_rect.y + 12)
+
+        # Mode indicator on the right
         if self.mode == "incoming":
-            title = "@)--,--⁻-- Viestit"
-            self._draw_incoming_orders(order_manager)
-            glyph_type = "phone"
+            mode_text = "Viestit"
         else:
-            title = "@)--,--⁻-- Tilaukset"
-            self._draw_accepted_orders(order_manager)
-            glyph_type = "flower"
+            mode_text = "Tilaukset"
 
-        # Draw glyph (phone or flower) to left of title
-        glyph_x = self.phone_rect.x + 20
-        glyph_y = self.phone_rect.y + 15
-        if glyph_type == "phone":
-            # Draw a simple phone glyph (handset)
-            # Handset body
-            pygame.draw.arc(self.screen, (180, 220, 180),
-                            (glyph_x, glyph_y, 32, 32), 3.8, 5.5, 5)
-            # Left earpiece
-            pygame.draw.circle(self.screen, (180, 220, 180),
-                               (glyph_x + 6, glyph_y + 26), 5)
-            # Right mouthpiece
-            pygame.draw.circle(self.screen, (180, 220, 180),
-                               (glyph_x + 26, glyph_y + 6), 5)
-        elif glyph_type == "flower":
-            # Draw a simple flower glyph
-            center = (glyph_x + 16, glyph_y + 16)
-            petal_color = (220, 180, 220)
-            center_color = (200, 220, 120)
-            for angle in range(0, 360, 72):
-                rad = angle * 3.14159 / 180
-                px = int(center[0] + 12 *
-                         pygame.math.Vector2(1, 0).rotate(angle).x)
-                py = int(center[1] + 12 *
-                         pygame.math.Vector2(1, 0).rotate(angle).y)
-                pygame.draw.ellipse(self.screen, petal_color,
-                                    (px-6, py-10, 12, 20))
-            pygame.draw.circle(self.screen, center_color, center, 7)
+        mode_surf = self.font.render(mode_text, True, (180, 180, 180))
+        mode_x = self.phone_rect.right - mode_surf.get_width() - 20
+        self.screen.blit(mode_surf, (mode_x, self.phone_rect.y + 25))
 
-        # Draw the title text to the right of the glyph
-        title_surf = self.title_font.render(title, True, self.text_color)
-        self.screen.blit(title_surf, (self.phone_rect.x +
-                         60, self.phone_rect.y + 15))
+    def _draw_header_minimal(self):
+        """Draw minimal header when active order screen is showing."""
+        header_rect = pygame.Rect(
+            self.phone_rect.x,
+            self.phone_rect.y,
+            self.phone_rect.width,
+            70
+        )
+        pygame.draw.rect(self.screen, self.header_color, header_rect,
+                         border_top_left_radius=16, border_top_right_radius=16)
 
-        # Close button (X)
-        close_rect = pygame.Rect(
-            self.phone_rect.right - 50, self.phone_rect.top + 10, 40, 40)
-        pygame.draw.rect(self.screen, (80, 40, 40),
-                         close_rect, border_radius=5)
-        close_text = self.font.render("X", True, (200, 200, 200))
-        close_text_rect = close_text.get_rect(center=close_rect.center)
-        self.screen.blit(close_text, close_text_rect)
+        # iPuhelin logo
+        self._draw_logo(self.phone_rect.x + 15, self.phone_rect.y + 12)
+
+        # "Tilaus" on right
+        mode_surf = self.font.render("Tilaus", True, (180, 180, 180))
+        mode_x = self.phone_rect.right - mode_surf.get_width() - 20
+        self.screen.blit(mode_surf, (mode_x, self.phone_rect.y + 25))
+
+    def _draw_logo(self, x: int, y: int):
+        """Draw the iPuhelin logo with stylized text."""
+        # "i" in italic style
+        i_surf = self.logo_font.render("i", True, self.logo_color)
+        self.screen.blit(i_surf, (x, y))
+
+        # "Puhelin" in regular style
+        puhelin_surf = self.logo_font.render("Puhelin", True, self.text_color)
+        self.screen.blit(puhelin_surf, (x + i_surf.get_width() - 2, y))
+
+        # Small leaf decoration after the text
+        leaf_x = x + i_surf.get_width() + puhelin_surf.get_width() + 5
+        leaf_y = y + 15
+        # Draw a simple leaf shape
+        points = [
+            (leaf_x, leaf_y + 8),
+            (leaf_x + 6, leaf_y),
+            (leaf_x + 12, leaf_y + 8),
+            (leaf_x + 6, leaf_y + 16)
+        ]
+        pygame.draw.polygon(self.screen, self.accent_color, points)
+        # Leaf stem
+        pygame.draw.line(self.screen, (80, 140, 80),
+                         (leaf_x + 6, leaf_y + 16), (leaf_x + 6, leaf_y + 22), 2)
+
+    def _draw_bottom_navbar(self):
+        """Draw bottom navigation bar with nav and camera buttons."""
+        navbar_height = 70
+        navbar_y = self.phone_rect.bottom - navbar_height
+
+        # Navbar background
+        navbar_rect = pygame.Rect(
+            self.phone_rect.x,
+            navbar_y,
+            self.phone_rect.width,
+            navbar_height
+        )
+        pygame.draw.rect(self.screen, self.header_color, navbar_rect,
+                         border_bottom_left_radius=16, border_bottom_right_radius=16)
+
+        # Divider line
+        pygame.draw.line(
+            self.screen,
+            (60, 70, 80),
+            (self.phone_rect.x + 10, navbar_y),
+            (self.phone_rect.right - 10, navbar_y),
+            1
+        )
+
+        # Button dimensions
+        button_w = 100
+        button_h = 45
+        button_y = navbar_y + (navbar_height - button_h) // 2
+
+        # Navigation button (center-left)
+        self.nav_button_rect = pygame.Rect(
+            self.phone_rect.x + self.phone_rect.width // 4 - button_w // 2,
+            button_y,
+            button_w,
+            button_h
+        )
+        self._draw_navbar_button(self.nav_button_rect, "Kartta", self._draw_nav_icon)
+
+        # Camera button (center-right)
+        self.camera_button_rect = pygame.Rect(
+            self.phone_rect.x + 3 * self.phone_rect.width // 4 - button_w // 2,
+            button_y,
+            button_w,
+            button_h
+        )
+        self._draw_navbar_button(self.camera_button_rect, "Kamera", self._draw_camera_icon)
+
+    def _draw_navbar_button(self, rect: pygame.Rect, label: str, icon_func):
+        """Draw a navbar button with icon and label."""
+        # Button background
+        pygame.draw.rect(self.screen, (50, 60, 70), rect, border_radius=10)
+        pygame.draw.rect(self.screen, (70, 80, 90), rect, 2, border_radius=10)
+
+        # Icon (small, at top of button)
+        icon_x = rect.centerx - 10
+        icon_y = rect.y + 6
+        icon_func(icon_x, icon_y)
+
+        # Label below icon
+        label_surf = self.small_font.render(label, True, (200, 200, 200))
+        label_rect = label_surf.get_rect(centerx=rect.centerx, bottom=rect.bottom - 4)
+        self.screen.blit(label_surf, label_rect)
+
+    def _draw_nav_icon(self, x: int, y: int):
+        """Draw a simple navigation/map icon."""
+        # Compass-like icon
+        pygame.draw.circle(self.screen, (150, 200, 150), (x + 10, y + 10), 10, 2)
+        # North indicator
+        pygame.draw.polygon(self.screen, (150, 200, 150), [
+            (x + 10, y + 2),
+            (x + 7, y + 10),
+            (x + 13, y + 10)
+        ])
+
+    def _draw_camera_icon(self, x: int, y: int):
+        """Draw a simple camera icon."""
+        # Camera body
+        pygame.draw.rect(self.screen, (150, 200, 150), (x + 2, y + 5, 16, 12), border_radius=2)
+        # Lens
+        pygame.draw.circle(self.screen, (100, 150, 100), (x + 10, y + 11), 4)
+        pygame.draw.circle(self.screen, (150, 200, 150), (x + 10, y + 11), 3)
+        # Flash
+        pygame.draw.rect(self.screen, (150, 200, 150), (x + 4, y + 2, 4, 3))
 
     def _draw_incoming_orders(self, order_manager):
         """Draw list of visible incoming orders."""
         orders = order_manager.visible_orders
-        y = self.phone_rect.y + 80
+        y = self.phone_rect.y + 85
 
         if not orders:
             no_orders = self.font.render(
@@ -163,12 +377,12 @@ class PhoneScreen:
 
         for order in orders:
             self._draw_order_card(order, y, show_timer=True)
-            y += 120
+            y += 110
 
     def _draw_accepted_orders(self, order_manager):
         """Draw list of accepted orders."""
         orders = order_manager.accepted_orders
-        y = self.phone_rect.y + 80
+        y = self.phone_rect.y + 85
 
         if not orders:
             no_orders = self.font.render(
@@ -177,49 +391,50 @@ class PhoneScreen:
             return
 
         for order in orders:
-            self._draw_order_card(order, y, show_timer=False)
-            y += 120
+            self._draw_order_card(order, y, show_timer=False, track_for_click=True)
+            y += 110
 
-    def _draw_order_card(self, order: Order, y: int, show_timer: bool):
+    def _draw_order_card(self, order: Order, y: int, show_timer: bool, track_for_click: bool = False):
         """Draw a single order card."""
         card_rect = pygame.Rect(
-            self.phone_rect.x + 15,
+            self.phone_rect.x + 12,
             y,
-            self.phone_rect.width - 30,
-            100
+            self.phone_rect.width - 24,
+            95
         )
 
+        # Track for click detection if requested
+        if track_for_click:
+            self.order_cards.append((card_rect, order))
+
         # Card background
-        pygame.draw.rect(self.screen, (50, 54, 62),
-                         card_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (45, 50, 60), card_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (60, 70, 80), card_rect, 1, border_radius=10)
 
         # Customer name
-        name_surf = self.font.render(
-            order.customer_location, True, self.text_color)
-        self.screen.blit(name_surf, (card_rect.x + 15, card_rect.y + 10))
+        name_surf = self.font.render(order.customer_location, True, self.text_color)
+        self.screen.blit(name_surf, (card_rect.x + 12, card_rect.y + 10))
 
         # Plant count
         plant_count = sum(p.amount for p in order.plants)
         plants_text = f"{plant_count} kasvia"
-        plants_surf = self.small_font.render(
-            plants_text, True, (180, 180, 180))
-        self.screen.blit(plants_surf, (card_rect.x + 15, card_rect.y + 45))
+        plants_surf = self.small_font.render(plants_text, True, (160, 160, 160))
+        self.screen.blit(plants_surf, (card_rect.x + 12, card_rect.y + 42))
 
         # Timer bar (for incoming orders)
         if show_timer and order.countdown_to_available > 0:
-            timer_width = 200
-            timer_height = 8
-            timer_x = card_rect.x + 15
-            timer_y = card_rect.y + 75
+            timer_width = 180
+            timer_height = 6
+            timer_x = card_rect.x + 12
+            timer_y = card_rect.y + 70
 
             # Background bar
             pygame.draw.rect(self.screen, (30, 30, 30),
                              (timer_x, timer_y, timer_width, timer_height),
-                             border_radius=4)
+                             border_radius=3)
 
             # Fill bar (based on remaining time)
-            # Assume max accept_time is stored or use a default
-            max_time = 15.0  # Could get this from order_manager.accept_time
+            max_time = 15.0
             fill_ratio = order.countdown_to_available / max_time
             fill_width = int(timer_width * fill_ratio)
 
@@ -233,4 +448,18 @@ class PhoneScreen:
 
             pygame.draw.rect(self.screen, bar_color,
                              (timer_x, timer_y, fill_width, timer_height),
-                             border_radius=4)
+                             border_radius=3)
+
+            # Accept button (only for incoming orders)
+            btn_rect = pygame.Rect(
+                card_rect.right - 95,
+                card_rect.y + 28,
+                80, 38
+            )
+            pygame.draw.rect(self.screen, self.accent_color, btn_rect, border_radius=8)
+            btn_text = self.small_font.render("Hyväksy", True, (255, 255, 255))
+            btn_text_rect = btn_text.get_rect(center=btn_rect.center)
+            self.screen.blit(btn_text, btn_text_rect)
+
+            # Track for click detection
+            self.accept_buttons.append((btn_rect, order))

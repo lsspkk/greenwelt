@@ -739,19 +739,19 @@ TESTING CHECKLIST
 
 After each milestone, test these:
 
-[ ] MILESTONE 1: Phone icons appear on map
-    [ ] Main phone always visible
-    [ ] Alert phone only visible when visible_orders > 0
-    [ ] Badge shows correct count
-    [ ] Click detection works
+[x] MILESTONE 1: Phone icons appear on map
+    [x] Main phone always visible
+    [x] Alert phone only visible when visible_orders > 0
+    [x] Badge shows correct count
+    [x] Click detection works
 
-[ ] MILESTONE 2: Phone screen opens
-    [ ] Clicking icons opens phone
-    [ ] Correct mode (incoming vs accepted)
-    [ ] X button closes phone
-    [ ] Background is dimmed
+[x] MILESTONE 2: Phone screen opens
+    [x] Clicking icons opens phone
+    [x] Correct mode (incoming vs accepted)
+    [x] X button closes phone
+    [x] Background is dimmed
 
-[ ] MILESTONE 3: Accept button works
+[?] MILESTONE 3: Accept button works
     [ ] Button visible on incoming orders
     [ ] Clicking accept moves order to accepted
     [ ] Order disappears from incoming list

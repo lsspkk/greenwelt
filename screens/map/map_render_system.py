@@ -3,7 +3,7 @@
 import esper
 import pygame
 from shared.shared_components import Position, DotRenderable
-from screens.map.components import MapBackground, RoadLayer, Camera
+from screens.map.components import MapBackground, RoadLayer, Camera, GreeneryLayer
 
 
 class MapRenderSystem(esper.Processor):
@@ -37,6 +37,12 @@ class MapRenderSystem(esper.Processor):
             road_surface = road.road_surface
             break
 
+        # Get greenery surface
+        greenery_surface = None
+        for ent, (greenery,) in esper.get_components(GreeneryLayer):
+            greenery_surface = greenery.surface
+            break
+
         # Calculate what part of the world is visible
         half_screen_w = camera.screen_width // 2
         half_screen_h = camera.screen_height // 2
@@ -55,6 +61,13 @@ class MapRenderSystem(esper.Processor):
         if road_surface is not None:
             self._draw_zoomed_surface(road_surface, camera, view_left, view_top)
 
+        # Draw greenery overlay (multiply blend to tint/darken the map)
+        if greenery_surface is not None:
+            self._draw_zoomed_surface(
+                greenery_surface, camera, view_left, view_top,
+                blend_mode=pygame.BLEND_RGB_MULT
+            )
+
         # Draw dots (player, markers)
         for ent, (pos, dot) in esper.get_components(Position, DotRenderable):
             screen_x, screen_y = camera.world_to_screen(pos.x, pos.y)
@@ -67,8 +80,16 @@ class MapRenderSystem(esper.Processor):
             )
 
     def _draw_zoomed_surface(self, surface: pygame.Surface, camera: Camera,
-                              view_left: float, view_top: float):
-        """Draw a surface with camera zoom and offset"""
+                              view_left: float, view_top: float, blend_mode: int = 0):
+        """Draw a surface with camera zoom and offset.
+
+        Args:
+            surface: The surface to draw
+            camera: Camera for zoom and position
+            view_left: World X coordinate of view left edge
+            view_top: World Y coordinate of view top edge
+            blend_mode: Optional pygame blend mode (e.g. pygame.BLEND_RGB_MULT)
+        """
         surf_w = surface.get_width()
         surf_h = surface.get_height()
 
@@ -101,4 +122,7 @@ class MapRenderSystem(esper.Processor):
         dest_x = int((src_left - view_left) * camera.zoom)
         dest_y = int((src_top - view_top) * camera.zoom)
 
-        self.screen.blit(scaled_surface, (dest_x, dest_y))
+        if blend_mode != 0:
+            self.screen.blit(scaled_surface, (dest_x, dest_y), special_flags=blend_mode)
+        else:
+            self.screen.blit(scaled_surface, (dest_x, dest_y))

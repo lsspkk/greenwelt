@@ -1,0 +1,263 @@
+# Audio Plan for Plant Courier
+
+## Summary
+
+Use pygame-ce's built-in audio (pygame.mixer) for everything.
+No external libraries needed. Works in WASM/browser via pygbag.
+
+## Recommended Approach: OGG Sound Effects Only
+
+### Why OGG files (not MIDI)
+
+- MIDI requires external synthesizers/soundfonts - complex in browser
+- pygame.mixer.music can play MIDI locally, but unreliable in WASM
+- OGG/WAV files work consistently everywhere
+- OGG = smaller file sizes than WAV, good quality
+
+### Basic pygame-ce Audio API
+
+```python
+import pygame
+
+# Initialize mixer (call once at startup)
+pygame.mixer.init()
+
+# Load and play a sound effect
+click_sound = pygame.mixer.Sound("assets/audio/click.ogg")
+click_sound.play()
+
+# Background music (streaming, for longer files)
+pygame.mixer.music.load("assets/audio/background.ogg")
+pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.play(-1)  # -1 = loop forever
+
+# Stop music
+pygame.mixer.music.stop()
+```
+
+### Suggested Audio Files to Add
+
+Create folder: assets/audio/
+
+Sound effects (short, <1 second):
+- alkaa-nyt.ogg   - Sound played when map starts
+#- pickup.ogg      - picking up a plant/order
+#- delivery.ogg    - successful delivery
+#- phone.ogg       - phone notification sound
+#- error.ogg       - wrong action sound
+
+Background music (optional, 30-60 seconds looped):
+- ambient.ogg     - calm background music for map
+
+### Simple AudioManager Class
+
+```python
+# shared/audio_manager.py
+
+import pygame
+from pathlib import Path
+
+class AudioManager:
+    def __init__(self):
+        self.sounds = {}
+        self.music_playing = False
+        self.sound_enabled = True
+        self.music_enabled = True
+        
+    def load_sounds(self):
+        """Load all sound effects at startup"""
+        audio_path = Path("assets/audio")
+        
+        sound_files = [
+            "click.ogg",
+            "pickup.ogg", 
+            "delivery.ogg",
+            "phone.ogg",
+            "error.ogg",
+        ]
+        
+        for filename in sound_files:
+            filepath = audio_path / filename
+            if filepath.exists():
+                name = filename.replace(".ogg", "")
+                self.sounds[name] = pygame.mixer.Sound(str(filepath))
+    
+    def play(self, sound_name: str):
+        """Play a sound effect by name"""
+        if not self.sound_enabled:
+            return
+            
+        if sound_name in self.sounds:
+            self.sounds[sound_name].play()
+    
+    def play_music(self, filename: str, loop: bool = True):
+        """Start background music"""
+        if not self.music_enabled:
+            return
+            
+        filepath = Path("assets/audio") / filename
+        if filepath.exists():
+            pygame.mixer.music.load(str(filepath))
+            pygame.mixer.music.set_volume(0.3)
+            pygame.mixer.music.play(-1 if loop else 0)
+            self.music_playing = True
+    
+    def stop_music(self):
+        """Stop background music"""
+        pygame.mixer.music.stop()
+        self.music_playing = False
+    
+    def toggle_sound(self):
+        """Toggle sound effects on/off"""
+        self.sound_enabled = not self.sound_enabled
+        return self.sound_enabled
+    
+    def toggle_music(self):
+        """Toggle music on/off"""
+        self.music_enabled = not self.music_enabled
+        if not self.music_enabled:
+            pygame.mixer.music.stop()
+        return self.music_enabled
+```
+
+### Integration in main.py
+
+```python
+# At startup (after pygame.init())
+pygame.mixer.init()
+audio = AudioManager()
+audio.load_sounds()
+
+# Play background music
+audio.play_music("ambient.ogg")
+
+# In button click handlers
+audio.play("click")
+
+# On delivery success
+audio.play("delivery")
+```
+
+## Where to Get Free Sound Effects
+
+1. **Freesound.org** - Creative Commons sounds
+   - Search for: "UI click", "notification", "success"
+   - Download as OGG or convert WAV to OGG
+
+2. **OpenGameArt.org** - Game-ready sounds
+   - Section: Audio > Sound Effects
+
+3. **Kenney.nl** - Free game assets (public domain)
+   - https://kenney.nl/assets?q=audio
+
+4. **Generate with sfxr/jsfxr** - 8-bit style sounds
+   - https://sfxr.me/ (browser tool)
+   - Export as WAV, convert to OGG
+
+### Converting to OGG
+
+```bash
+# Using ffmpeg (install: sudo apt install ffmpeg)
+ffmpeg -i input.wav -c:a libvorbis -q:a 5 output.ogg
+ffmpeg -i input.mp3 -c:a libvorbis -q:a 5 output.ogg
+
+# Batch convert all WAV files
+for f in *.wav; do ffmpeg -i "$f" -c:a libvorbis -q:a 5 "${f%.wav}.ogg"; done
+```
+
+## WSL Audio Testing
+
+### Option 1: Skip Local Testing, Test in Browser
+
+Simplest approach - just build and test in browser:
+
+```bash
+uv run python build.py --serve
+# Open http://localhost:8000 in browser
+```
+
+Browser audio will work fine. This is the recommended approach.
+
+### Option 2: Enable Audio in WSL2 (if you really want local testing)
+
+WSL2 can output audio to Windows via PulseAudio:
+
+1. Install PulseAudio on Windows:
+   - Download from: https://www.freedesktop.org/wiki/Software/PulseAudio/Ports/Windows/Support/
+   - Or use: https://github.com/pgaskin/pulseaudio-win32/releases
+
+2. Configure PulseAudio on Windows:
+   - Edit config/default.pa, add:
+     load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1;172.16.0.0/12
+   - Edit config/daemon.conf:
+     exit-idle-time = -1
+
+3. In WSL, set environment:
+   ```bash
+   export PULSE_SERVER=tcp:$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
+   ```
+
+4. Install SDL audio in WSL:
+   ```bash
+   sudo apt install libsdl2-mixer-2.0-0 pulseaudio-utils
+   ```
+
+This is complex. **Recommend testing in browser instead.**
+
+## WASM/Browser Considerations
+
+- pygame.mixer works in pygbag/browser
+- First sound may need user interaction (browser autoplay policy)
+- Keep total audio assets small (<5MB recommended)
+- OGG format works in all browsers
+- Preload sounds at startup, not during gameplay
+
+## MIDI Alternative (Not Recommended)
+
+If you really want MIDI:
+
+```python
+# pygame can play MIDI files locally
+pygame.mixer.music.load("music.mid")
+pygame.mixer.music.play()
+```
+
+Problems:
+- Requires system MIDI synthesizer
+- Sounds different on every computer
+- May not work in WASM/browser
+- No control over instrument sounds
+
+Better alternative for "chiptune" feel:
+- Use sfxr/jsfxr to generate sounds
+- Export as OGG files
+- Consistent sound everywhere
+
+## File Size Budget
+
+Keep audio small for WASM loading:
+
+| Type | Recommended Size |
+|------|-----------------|
+| Single sound effect | 10-50 KB |
+| All sound effects | <500 KB total |
+| Background music loop | 200-500 KB |
+| Total audio assets | <2 MB |
+
+## Implementation Steps
+
+1. Create `assets/audio/` folder
+2. Download/create sound effects (OGG format)
+3. Create `shared/audio_manager.py` 
+4. Initialize in main.py after pygame.init()
+5. Add audio.play() calls at appropriate events
+6. Test in browser (build --serve)
+7. Add mute buttons to UI (optional)
+
+## Minimal First Implementation
+
+Start with just 2 sounds:
+1. click.ogg - for all button presses
+2. phone.ogg - for order notifications
+
+Add more sounds later as needed.

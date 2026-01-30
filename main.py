@@ -10,6 +10,7 @@ from screens.map.order_manager import OrderManager
 from shared.debug_overlay import DebugOverlay
 from shared.debug_log import debug
 from shared.input_manager import InputManager
+from shared.audio_manager import AudioManager
 
 # Add this for browser JS interop (Pyodide/pygbag)
 try:
@@ -26,6 +27,12 @@ async def main():
     screen = pygame.display.set_mode((1920, 1080))
     clock = pygame.time.Clock()
     pygame.display.set_caption("Plant Courier")
+
+    # Initialize audio
+    audio = AudioManager()
+    audio.initialize()
+    audio.load_sounds()
+    debug.info(f"Audio: {audio.get_status()}")
 
     # Exit button (top right corner)
     exit_font = pygame.font.Font(None, 36)
@@ -53,6 +60,7 @@ async def main():
     start_dialog = StartDialog(screen)
     current_map = None
     map_ui = None
+    map_overlay_action = None
 
     # Game state
     running = True
@@ -74,12 +82,17 @@ async def main():
         if game_state == "start":
             action = start_dialog.handle_event(input_mgr)
             if action == "map":
+                # Play start sound
+                audio.play("alkaa-nyt")
                 # Initialize map screen
                 current_map = MapScreen(screen, "world")
                 current_map.initialize()
+                current_map.load_config("data/map1_config.json")
                 current_map.load_map_image("assets/map1.png")
                 current_map.load_roads("data/map1_roads.json")
                 current_map.load_locations("data/map1_locations.json")
+                current_map.load_orders("data/map1_orders.json")
+                current_map.initialize_greenery()
                 current_map.initialize_start_position()
                 map_ui = MapUI(screen, current_map.order_manager)
                 game_state = "map"
@@ -103,7 +116,7 @@ async def main():
         if debug.overlay_visible:
             if debug_overlay.draw_overlay(input_mgr):
                 debug.overlay_visible = False
-        else:
+        elif map_overlay_action is None:
             # Normal game input (only when overlay closed)
             if input_mgr.clicked_this_frame:
                 mouse_x, mouse_y = input_mgr.click_pos
@@ -143,11 +156,16 @@ async def main():
         # Draw UI (only if overlay not covering)
         if not debug.overlay_visible:
             # Draw map-specific UI (location indicator, etc.)
-            map_ui_action = map_ui.draw(current_map, input_mgr)
-            if map_ui_action == "open_incoming_orders":
+            map_action = map_ui.draw(current_map, input_mgr)
+            if map_action == "open_incoming_orders":
                 debug.info("Incoming orders phone clicked")
-            elif map_ui_action == "open_main_phone":
+                map_overlay_action = "open_incoming_orders"
+            elif map_action == "open_main_phone":
                 debug.info("Main phone clicked")
+                map_overlay_action = "open_main_phone"
+            elif map_action == "close_phone":
+                debug.info("Phone closed")            
+                map_overlay_action = None
 
         # Draw debug icon last so it's always on top
         if debug_overlay.draw_icon(input_mgr):
