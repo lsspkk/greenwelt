@@ -52,7 +52,7 @@ class GreenerySystem:
 
         # Current intensity (0.0 to 1.0)
         # 1.0 = full green tint, 0.0 = no tint
-        self.current_intensity = 1.0
+        self.current_intensity = 0.2
 
         # Green color for the tint
         # This is the color that will be multiplied with the map

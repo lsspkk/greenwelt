@@ -163,8 +163,8 @@ async def main():
             elif map_action == "open_main_phone":
                 debug.info("Main phone clicked")
                 map_overlay_action = "open_main_phone"
-            elif map_action == "close_phone":
-                debug.info("Phone closed")            
+            elif map_action == "phone_closed":
+                debug.info("Phone closed")
                 map_overlay_action = None
 
         # Draw debug icon last so it's always on top

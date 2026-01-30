@@ -24,7 +24,7 @@ class PhoneScreen:
         # Phone frame dimensions (centered on screen)
         screen_w, screen_h = screen.get_size()
         phone_w = 500
-        phone_h = 700
+        phone_h = 750  # <<<< PHONE TOTAL HEIGHT
         self.phone_rect = pygame.Rect(
             (screen_w - phone_w) // 2,
             (screen_h - phone_h) // 2,
@@ -267,7 +267,7 @@ class PhoneScreen:
 
         # Small leaf decoration after the text
         leaf_x = x + i_surf.get_width() + puhelin_surf.get_width() + 5
-        leaf_y = y + 15
+        leaf_y = y + 2
         # Draw a simple leaf shape
         points = [
             (leaf_x, leaf_y + 8),
@@ -282,7 +282,8 @@ class PhoneScreen:
 
     def _draw_bottom_navbar(self):
         """Draw bottom navigation bar with nav and camera buttons."""
-        navbar_height = 70
+        # <<<< PHONE BOTTOM NAVBAR HEIGHT AND POSITION
+        navbar_height = 50
         navbar_y = self.phone_rect.bottom - navbar_height
 
         # Navbar background
@@ -305,8 +306,8 @@ class PhoneScreen:
         )
 
         # Button dimensions
-        button_w = 100
-        button_h = 45
+        button_w = 90
+        button_h = 38
         button_y = navbar_y + (navbar_height - button_h) // 2
 
         # Navigation button (center-left)
