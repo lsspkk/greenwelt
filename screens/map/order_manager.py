@@ -1,9 +1,11 @@
 # Order system - manages order lifecycle on the map screen
 
 import esper
+import random
 from typing import List, Dict
 from shared.shared_components import Order, OrderState, PlantOrder
 from shared.debug_log import debug
+from screens.map.order_text_roller import OrderTextRoller
 
 
 class OrderManager:
@@ -32,6 +34,7 @@ class OrderManager:
         self.batch_size: int = 3
         self.batch_delay: float = 10.0
         self.accept_time: float = 15.0
+        self.active_order_limit: int = 6
 
         # Progress tracking
         self.orders_completed_count: int = 0
@@ -43,6 +46,9 @@ class OrderManager:
 
         # Flag for map completion
         self.map_completed: bool = False
+
+        # Text roller for generating order text
+        self.text_roller = OrderTextRoller()
 
     def load_orders(self, orders_data: Dict[str, List[dict]]):
         """
@@ -99,19 +105,30 @@ class OrderManager:
         debug.info(f"Orders loaded: {total_orders} orders from {len(self.all_orders)} locations")
         debug.info(f"Orders in available pool: {len(self.available_orders)}")
 
+        # Generate random text for all plants in orders
+        self.text_roller.roll_for_orders(self.available_orders)
+
     def set_config(self, batch_size: int, batch_delay: float, accept_time: float,
-                   orders_required: int = 0, plants_required: int = 0):
+                   orders_required: int = 0, plants_required: int = 0,
+                   active_order_limit: int = 6):
         """Set timing and completion config from map settings."""
         self.batch_size = batch_size
         self.batch_delay = batch_delay
         self.accept_time = accept_time
         self.orders_required = orders_required
         self.plants_required = plants_required
+        self.active_order_limit = active_order_limit
 
     def select_next_batch(self):
         """Select next batch of orders from available pool, avoiding same location."""
         if not self.available_orders:
             debug.debug("No available orders for next batch")
+            return
+
+        # Don't select new batch if player has too many active orders
+        if len(self.accepted_orders) >= self.active_order_limit:
+            debug.debug(f"Active order limit reached ({len(self.accepted_orders)}/{self.active_order_limit})")
+            self.countdown_to_incoming = 1.0  # Check again soon
             return
 
         batch_count = min(self.batch_size, len(self.available_orders))
@@ -140,9 +157,15 @@ class OrderManager:
         for order in selected_orders:
             self.available_orders.remove(order)
             order.state = OrderState.INCOMING
-            order.countdown_to_visible = order.send_time
+
+            # Roll random delay based on send_time (between send_time/2 and send_time)
+            min_delay = order.send_time / 2.0
+            max_delay = order.send_time
+            order.rolled_send_time = random.uniform(min_delay, max_delay)
+            order.countdown_to_visible = order.rolled_send_time
+
             self.incoming_orders.append(order)
-            debug.info(f"  -> INCOMING: {order.order_id} ({order.customer_location}) countdown={order.send_time}s")
+            debug.info(f"  -> INCOMING: {order.order_id} ({order.customer_location}) countdown={order.rolled_send_time:.1f}s (rolled from {order.send_time}s)")
 
         self.countdown_to_incoming = self.batch_delay
 

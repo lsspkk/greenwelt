@@ -89,7 +89,8 @@ class MapScreen:
                     batch_delay=self.map_config.get("batch_delay", 10.0),
                     accept_time=self.map_config.get("accept_time", 15.0),
                     orders_required=self.map_config.get("orders_required", 10),
-                    plants_required=self.map_config.get("plants_required", 0)
+                    plants_required=self.map_config.get("plants_required", 0),
+                    active_order_limit=self.map_config.get("active_order_limit", 6)
                 )
 
             debug.info(f"Loaded map config from {json_path}")

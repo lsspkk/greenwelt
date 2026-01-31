@@ -3,6 +3,7 @@ from typing import Optional, List
 from shared.shared_components import Order, OrderState
 from shared.debug_log import debug
 from screens.dialogs.phone_active_order import PhoneActiveOrderScreen
+from screens.dialogs.phone_visible_order import PhoneVisibleOrderScreen
 
 
 class PhoneScreen:
@@ -62,8 +63,11 @@ class PhoneScreen:
         # Track clickable order cards for accepted orders
         self.order_cards: List[tuple[pygame.Rect, Order]] = []
 
-        # Active order detail screen
+        # Active order detail screen (for ACCEPTED orders - shows images)
         self.active_order_screen = PhoneActiveOrderScreen(self.phone_rect)
+
+        # Visible order detail screen (for VISIBLE orders - shows text only)
+        self.visible_order_screen = PhoneVisibleOrderScreen(self.phone_rect)
 
         # Callback for camera (to be set by parent)
         self.on_camera_click = None
@@ -81,6 +85,7 @@ class PhoneScreen:
         """Close the phone screen."""
         self.visible = False
         self.active_order_screen.close()
+        self.visible_order_screen.close()
 
     def handle_input(self, input_mgr, order_manager) -> Optional[str]:
         """
@@ -88,6 +93,24 @@ class PhoneScreen:
         Returns action string or None.
         """
         if not self.visible:
+            return None
+
+        # If visible order screen is showing (for VISIBLE orders before accepting)
+        if self.visible_order_screen.visible:
+            result = self.visible_order_screen.handle_input(input_mgr)
+            if result == "order_accepted":
+                # User clicked OK - actually accept the order
+                accepted_order = self.visible_order_screen.accepted_order
+                if accepted_order is not None:
+                    order_manager.accept_order(accepted_order)
+                    debug.info(f"Order accepted via visible screen: {accepted_order.order_id}")
+                return "order_accepted"
+            if result == "back_to_orders":
+                # User clicked X - return to order list without accepting
+                return None
+            if result is not None:
+                return result
+            # Visible order screen is showing, don't process other inputs
             return None
 
         # If active order screen is visible, handle its input first
@@ -130,12 +153,12 @@ class PhoneScreen:
                     self.active_order_screen.open(order)
                     return "order_opened"
 
-        # Check accept button clicks
+        # Check accept button clicks - opens visible order screen first
         for btn_rect, order in self.accept_buttons:
             if input_mgr.clicked_in_rect(btn_rect):
-                debug.info(f"Accept button clicked for order {order.order_id}")
-                order_manager.accept_order(order)
-                return "order_accepted"
+                debug.info(f"Accept button clicked for order {order.order_id} - opening details")
+                self.visible_order_screen.open(order)
+                return "order_details_opened"
 
         return None
 
@@ -155,6 +178,13 @@ class PhoneScreen:
 
         # Draw device bezel (outer frame)
         self._draw_device_frame()
+
+        # If visible order screen is showing (preview before accepting)
+        if self.visible_order_screen.visible:
+            self._draw_header_minimal()
+            self.visible_order_screen.draw(self.screen)
+            self._draw_bottom_navbar()
+            return
 
         # If active order screen is visible, draw it instead of order list
         if self.active_order_screen.visible:

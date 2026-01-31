@@ -79,13 +79,13 @@ class StartDialog:
         self.screen.fill(self.bg_color)
 
         # Title
-        title_text = "Plant Courier"
+        title_text = "Viherpesu"
         title_surf = self.title_font.render(title_text, True, self.title_color)
         title_rect = title_surf.get_rect(center=(self.screen_width // 2, 200))
         self.screen.blit(title_surf, title_rect)
 
         # Subtitle
-        subtitle_text = "Deliver plants across the city"
+        subtitle_text = "Paranna kaupunkeja kasvien voimalla!"
         subtitle_surf = self.subtitle_font.render(subtitle_text, True, self.subtitle_color)
         subtitle_rect = subtitle_surf.get_rect(center=(self.screen_width // 2, 280))
         self.screen.blit(subtitle_surf, subtitle_rect)

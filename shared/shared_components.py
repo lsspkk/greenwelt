@@ -68,6 +68,8 @@ class PlantOrder:
     name_fi: str           # Finnish name (e.g., "Köynnösvehka")
     name_en: str           # English name (e.g., "Pothos")
     amount: int            # How many plants requested
+    plant_text: str = ""   # Generated text describing the plant request
+    amount_text: str = ""  # Generated text describing the amount
 
 
 @dataclass
@@ -84,6 +86,8 @@ class Order:
     state: OrderState = OrderState.AVAILABLE
     # Delay before becoming visible (from JSON, does not change)
     send_time: float = 0.0
+    # Rolled random value based on send_time (set when order becomes INCOMING)
+    rolled_send_time: float = 0.0
     # Countdown to change state from INCOMING to VISIBLE (-1 if not INCOMING)
     countdown_to_visible: float = -1.0
     # Countdown to change state from VISIBLE to AVAILABLE (-1 if not VISIBLE)

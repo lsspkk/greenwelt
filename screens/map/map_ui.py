@@ -1,10 +1,13 @@
 # Map UI components - location indicator, phone buttons, player portrait, etc.
 
+import random
 import pygame
 from typing import Optional, Dict
 
 from screens.dialogs.phone import PhoneScreen
+from screens.dialogs.delivery_dialog import DeliveryDialog
 from screens.map.order_manager import OrderManager
+from shared.shared_components import Order
 
 
 class MapUI:
@@ -42,16 +45,35 @@ class MapUI:
         self.accepted_phone_border = self.accepted_phone_rect.inflate(12, 12)
         self.phone_icon = pygame.transform.smoothscale(
             self.phone_icon, (84, 84))
-
         # Below: incoming orders (alert phone)
         self.incoming_phone_rect = pygame.Rect(32, 250, 84, 84)
         self.incoming_phone_border = self.incoming_phone_rect.inflate(12, 12)
         self.phone_alert_icon = pygame.transform.smoothscale(
             self.phone_alert_icon, (84, 84))
 
+        # Greenhouse icon (when near greenhouse location)
+        index = random.randint(1, 3)
+        icon_path = f"assets/ui/greenhouse{index}-icon.png"
+        self.greenhouse_icon = pygame.image.load(icon_path).convert_alpha()
+        self.greenhouse_icon = pygame.transform.smoothscale(
+            self.greenhouse_icon, (84, 84))
+        self.greenhouse_icon_rect = pygame.Rect(32, 380, 84, 84)
+        self.greenhouse_icon_border = self.greenhouse_icon_rect.inflate(12, 12)
+
+        # Door button (below accepted phone icon) - for delivery when at order location
+        self.door_button_rect = pygame.Rect(32, 220, 84, 84)
+        self.door_button_border = self.door_button_rect.inflate(12, 12)
+
+        # Delivery dialog
+        self.delivery_dialog = DeliveryDialog(screen)
+        self.delivery_dialog.on_order_completed = self._on_order_completed
+
         # Layout constants
         self.padding = 30
         self.box_height = 80
+
+        # Track nearby location for delivery check
+        self.current_nearby_location: Optional[Dict] = None
 
         # Set up phone callbacks
         self.phone.on_camera_click = self._on_camera_click
@@ -69,6 +91,21 @@ class MapUI:
         from shared.debug_log import debug
         debug.info("Camera button clicked - selfie capture requested")
 
+    def _on_order_completed(self, order: Order):
+        """Called when an order is completed via delivery dialog."""
+        from shared.debug_log import debug
+        plants_count = sum(p.amount for p in order.plants)
+        self.order_manager.complete_order(order, plants_count)
+        debug.info(
+            f"Order {order.order_id} completed with {plants_count} plants")
+
+    def _get_order_for_location(self, location_name: str) -> Optional[Order]:
+        """Get accepted order for a specific location, if any."""
+        for order in self.order_manager.accepted_orders:
+            if order.customer_location == location_name:
+                return order
+        return None
+
     def draw(self, map_screen, input_mgr) -> Optional[str]:
         """
         Draw all map UI elements.
@@ -77,8 +114,17 @@ class MapUI:
         action = None
 
         nearby = map_screen.get_nearby_location()
+        self.current_nearby_location = nearby
         if nearby:
             self._draw_location_indicator(nearby)
+
+        self._draw_greenhouse_icon()
+
+        # If delivery dialog is open, handle it (blocks other UI)
+        if self.delivery_dialog.visible:
+            self.delivery_dialog.draw()
+            action = self.delivery_dialog.handle_input(input_mgr)
+            return action
 
         # If phone is open, handle it (blocks other UI)
         # Draw first to populate accept_buttons, then handle input
@@ -91,11 +137,17 @@ class MapUI:
         self._draw_player_portrait()
 
         # Normal UI when phone is closed
-        action = self._draw_phone_icons(input_mgr)
+        action = self._draw_phone_icons(input_mgr, nearby)
         if action == "open_incoming_orders":
             self.phone.open("incoming")
         elif action == "open_main_phone":
             self.phone.open("accepted")
+        elif action == "open_delivery":
+            # Open delivery dialog for the order at nearby location
+            if nearby:
+                order = self._get_order_for_location(nearby["name"])
+                if order:
+                    self.delivery_dialog.open(order, nearby["name"])
 
         return action
 
@@ -156,7 +208,15 @@ class MapUI:
         self.screen.blit(name_surf, (box_x + 20, box_y + 15))
         self.screen.blit(type_surf, (box_x + 20, box_y + 48))
 
-    def _draw_phone_icons(self, input_mgr):
+    def _draw_greenhouse_icon(self):
+        """Draw greenhouse icon when near greenhouse location."""
+        bg_color = (80, 120, 50)
+        pygame.draw.rect(self.screen, bg_color,
+                         self.greenhouse_icon_border, border_radius=12)
+        self.screen.blit(self.greenhouse_icon,
+                         self.greenhouse_icon_rect.topleft)
+
+    def _draw_phone_icons(self, input_mgr, nearby: Optional[Dict]):
         """Draw phone icons and handle clicks. Returns action string or None."""
         bg_color = (80, 80, 100)
 
@@ -172,16 +232,41 @@ class MapUI:
         if input_mgr.clicked_in_rect(self.accepted_phone_rect):
             return "open_main_phone"
 
+        # Door button: Show when nearby location has an accepted order
+        show_door_button = False
+        if nearby is not None:
+            order = self._get_order_for_location(nearby["name"])
+            if order is not None:
+                show_door_button = True
+
+        if show_door_button:
+            door_color = (100, 160, 100)  # Green tint for delivery
+            pygame.draw.rect(self.screen, door_color,
+                             self.door_button_border, border_radius=12)
+            self._draw_door_icon(self.door_button_rect)
+
+            if input_mgr.clicked_in_rect(self.door_button_rect):
+                return "open_delivery"
+
         # Bottom icon: Incoming orders (alert phone) - only if visible orders exist
+        # Position it below the door button if door is shown
         visible_count = self.order_manager.get_visible_count()
         if visible_count > 0:
-            pygame.draw.rect(self.screen, bg_color,
-                             self.incoming_phone_border, border_radius=12)
-            self.screen.blit(self.phone_alert_icon,
-                             self.incoming_phone_rect.topleft)
-            self._draw_badge(self.incoming_phone_rect, visible_count)
+            # Adjust incoming phone position based on door button visibility
+            if show_door_button:
+                incoming_rect = pygame.Rect(32, 320, 84, 84)
+                incoming_border = incoming_rect.inflate(12, 12)
+            else:
+                incoming_rect = self.incoming_phone_rect
+                incoming_border = self.incoming_phone_border
 
-            if input_mgr.clicked_in_rect(self.incoming_phone_rect):
+            pygame.draw.rect(self.screen, bg_color,
+                             incoming_border, border_radius=12)
+            self.screen.blit(self.phone_alert_icon,
+                             incoming_rect.topleft)
+            self._draw_badge(incoming_rect, visible_count)
+
+            if input_mgr.clicked_in_rect(incoming_rect):
                 return "open_incoming_orders"
 
         return None
@@ -229,3 +314,43 @@ class MapUI:
         # Rosy cheeks
         pygame.draw.circle(self.screen, (255, 160, 120), (cx - 18, cy + 5), 6)
         pygame.draw.circle(self.screen, (255, 160, 120), (cx + 18, cy + 5), 6)
+
+    def _draw_door_icon(self, rect: pygame.Rect):
+        """Draw a door icon for the delivery button."""
+        cx = rect.centerx
+        cy = rect.centery
+        icon_color = (255, 255, 255)
+
+        # Door frame (rectangle)
+        door_width = 36
+        door_height = 50
+        door_rect = pygame.Rect(
+            cx - door_width // 2,
+            cy - door_height // 2,
+            door_width,
+            door_height
+        )
+        pygame.draw.rect(self.screen, icon_color,
+                         door_rect, 3, border_radius=3)
+
+        # Door handle (circle on right side)
+        handle_x = cx + door_width // 2 - 10
+        handle_y = cy + 2
+        pygame.draw.circle(self.screen, icon_color, (handle_x, handle_y), 5)
+
+        # Arrow pointing into door (from left)
+        arrow_start_x = cx - door_width // 2 - 20
+        arrow_end_x = cx - door_width // 2 - 5
+        arrow_y = cy
+
+        # Arrow line
+        pygame.draw.line(self.screen, icon_color,
+                         (arrow_start_x, arrow_y),
+                         (arrow_end_x, arrow_y), 3)
+
+        # Arrow head
+        pygame.draw.polygon(self.screen, icon_color, [
+            (arrow_end_x + 5, arrow_y),
+            (arrow_end_x - 5, arrow_y - 7),
+            (arrow_end_x - 5, arrow_y + 7)
+        ])
