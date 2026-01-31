@@ -52,7 +52,7 @@ class GreenhouseScreen:
         self.plants_per_row = 5
         self.visible_rows = 2
         self.scroll_row = 0  # Which row to start showing
-        self.plant_size = 120
+        self.plant_size = 240  # Doubled from 120
 
         # Load all available plant filenames
         self.all_plants: List[str] = []
@@ -127,7 +127,15 @@ class GreenhouseScreen:
 
         try:
             image = pygame.image.load(str(plant_path)).convert_alpha()
-            scaled = pygame.transform.smoothscale(image, (self.plant_size, self.plant_size))
+            # Calculate scale factor
+            width_ratio = self.plant_size / image.get_width()
+            height_ratio = self.plant_size / image.get_height()
+            scale = min(width_ratio, height_ratio)
+
+            plant_width = int(image.get_width() * scale)
+            plant_height = int(image.get_height() * scale)
+
+            scaled = pygame.transform.smoothscale(image, (plant_width, plant_height))
             self.plant_image_cache[filename] = scaled
             return scaled
         except Exception as e:
@@ -154,6 +162,9 @@ class GreenhouseScreen:
         self.background_alpha = 255
         self.fade_complete = False
         self.scroll_row = 0
+
+        # Clear plant image cache to ensure images are at current size
+        self.plant_image_cache = {}
 
         # Load background image
         self._load_background()
@@ -201,9 +212,9 @@ class GreenhouseScreen:
                 self.fade_timer = self.fade_duration
                 self.fade_complete = True
 
-            # Calculate alpha: 255 -> 25 (10% of 255)
+            # Calculate alpha: 255 -> 55 (10% of 255)
             progress = self.fade_timer / self.fade_duration
-            self.background_alpha = int(255 - (255 - 25) * progress)
+            self.background_alpha = int(255 - (255 - 55) * progress)
 
     def handle_input(self, input_mgr) -> Optional[str]:
         """
@@ -222,17 +233,22 @@ class GreenhouseScreen:
             self.close()
             return "close_greenhouse"
 
-        # Scroll up
+        # Page up (move 2 rows)
         if input_mgr.clicked_in_rect(self.scroll_up_rect):
             if self.scroll_row > 0:
-                self.scroll_row = self.scroll_row - 1
-            return "scroll_up"
+                self.scroll_row = self.scroll_row - 2
+                if self.scroll_row < 0:
+                    self.scroll_row = 0
+            return "page_up"
 
-        # Scroll down
+        # Page down (move 2 rows)
         if input_mgr.clicked_in_rect(self.scroll_down_rect):
-            if self.scroll_row < self._get_max_scroll():
-                self.scroll_row = self.scroll_row + 1
-            return "scroll_down"
+            max_scroll = self._get_max_scroll()
+            if self.scroll_row < max_scroll:
+                self.scroll_row = self.scroll_row + 2
+                if self.scroll_row > max_scroll:
+                    self.scroll_row = max_scroll
+            return "page_down"
 
         # Plus buttons (pick up plant)
         for i in range(len(self.plus_button_rects)):
@@ -261,6 +277,9 @@ class GreenhouseScreen:
         if not self.visible:
             return
 
+        # Fill entire screen with black background
+        self.screen.fill((0, 0, 0))
+
         # Clear button rects
         self.plus_button_rects = []
         self.minus_button_rects = []
@@ -288,16 +307,11 @@ class GreenhouseScreen:
 
     def _draw_plant_grid(self):
         """Draw the grid of available plants with +/- buttons."""
-        # Left panel for plant grid
+        # Plant grid area (no panel rectangle)
         panel_x = 50
         panel_y = 100
         panel_width = self.plants_per_row * (self.plant_size + 20) + 60
         panel_height = self.visible_rows * (self.plant_size + 80) + 120
-
-        # Draw panel background
-        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
-        pygame.draw.rect(self.screen, self.panel_color, panel_rect, border_radius=15)
-        pygame.draw.rect(self.screen, self.accent_color, panel_rect, 3, border_radius=15)
 
         # Title
         title_text = self.title_font.render("Valitse kasvit", True, self.text_color)
@@ -306,11 +320,11 @@ class GreenhouseScreen:
         # Scroll buttons on the right side of panel
         button_size = 60
         scroll_x = panel_x + panel_width - button_size - 20
-        scroll_up_y = panel_y + 60
-        scroll_down_y = panel_y + panel_height - button_size - 20
+        scroll_y = panel_y + panel_height + button_size - 20
+        scroll_down_x = panel_x + panel_width - button_size * 2 - 40
 
         # Draw scroll up button
-        self.scroll_up_rect = pygame.Rect(scroll_x, scroll_up_y, button_size, button_size)
+        self.scroll_up_rect = pygame.Rect(scroll_x, scroll_y, button_size, button_size)
         can_scroll_up = self.scroll_row > 0
         up_color = self.button_color if can_scroll_up else (50, 50, 60)
         pygame.draw.rect(self.screen, up_color, self.scroll_up_rect, border_radius=10)
@@ -319,7 +333,7 @@ class GreenhouseScreen:
         self.screen.blit(up_text, up_text_rect)
 
         # Draw scroll down button
-        self.scroll_down_rect = pygame.Rect(scroll_x, scroll_down_y, button_size, button_size)
+        self.scroll_down_rect = pygame.Rect(scroll_down_x, scroll_y, button_size, button_size)
         can_scroll_down = self.scroll_row < self._get_max_scroll()
         down_color = self.button_color if can_scroll_down else (50, 50, 60)
         pygame.draw.rect(self.screen, down_color, self.scroll_down_rect, border_radius=10)

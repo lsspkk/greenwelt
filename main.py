@@ -95,6 +95,7 @@ async def main():
                 current_map.initialize_greenery()
                 current_map.initialize_start_position()
                 map_ui = MapUI(screen, current_map.order_manager)
+                map_ui.on_greenery_add = current_map.add_greenery_at_delivery
                 game_state = "map"
                 debug.info("Map screen initialized")
             elif action == "exit":
@@ -116,8 +117,8 @@ async def main():
         if debug.overlay_visible:
             if debug_overlay.draw_overlay(input_mgr):
                 debug.overlay_visible = False
-        elif map_overlay_action is None:
-            # Normal game input (only when overlay closed)
+        elif map_overlay_action is None and not map_ui.greenhouse.visible:
+            # Normal game input (only when overlay closed and greenhouse not open)
             if input_mgr.clicked_this_frame:
                 mouse_x, mouse_y = input_mgr.click_pos
                 # Convert screen to world coordinates using camera position and zoom

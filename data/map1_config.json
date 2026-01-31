@@ -5,7 +5,7 @@
     "plants_required": 0,
     "batch_size": 3,
     "batch_delay": 10.0,
-    "accept_time": 15.0,
+    "accept_time": 25.0,
     "active_order_limit": 6,
     "greenery": {
         "enabled": true,

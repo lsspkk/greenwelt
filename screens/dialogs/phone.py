@@ -97,6 +97,14 @@ class PhoneScreen:
 
         # If visible order screen is showing (for VISIBLE orders before accepting)
         if self.visible_order_screen.visible:
+            # Check if click is outside the device (bezel) - close phone entirely
+            if input_mgr.clicked_this_frame:
+                click_pos = input_mgr.click_pos
+                if click_pos is not None:
+                    if not self.bezel_rect.collidepoint(click_pos):
+                        self.close()
+                        return "phone_closed"
+
             result = self.visible_order_screen.handle_input(input_mgr)
             if result == "order_accepted":
                 # User clicked OK - actually accept the order
@@ -115,6 +123,14 @@ class PhoneScreen:
 
         # If active order screen is visible, handle its input first
         if self.active_order_screen.visible:
+            # Check if click is outside the device (bezel) - close phone entirely
+            if input_mgr.clicked_this_frame:
+                click_pos = input_mgr.click_pos
+                if click_pos is not None:
+                    if not self.bezel_rect.collidepoint(click_pos):
+                        self.close()
+                        return "phone_closed"
+
             result = self.active_order_screen.handle_input(input_mgr)
             if result == "back_to_orders":
                 # Returned to order list

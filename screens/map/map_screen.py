@@ -194,17 +194,14 @@ class MapScreen:
         """Initialize the greenery system after map and roads are loaded"""
         from shared.debug_log import debug
 
-        # Get total orders from config
-        total_orders = self.map_config.get("total_orders", 20)
-
-        # Create greenery system
-        self.greenery_system = GreenerySystem(self.order_manager, total_orders)
+        # Create greenery system (starts white, gets greener with deliveries)
+        self.greenery_system = GreenerySystem()
 
         # Apply greenery config if present
         greenery_config = self.map_config.get("greenery", {})
         if greenery_config.get("enabled", True):
             if "green_color" in greenery_config:
-                self.greenery_system.base_green_color = tuple(greenery_config["green_color"])
+                self.greenery_system.green_color = tuple(greenery_config["green_color"])
 
         # Get map image dimensions
         bg = esper.component_for_entity(self.map_entity, MapBackground)
@@ -221,7 +218,38 @@ class MapScreen:
                 greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
                 greenery_layer.surface = self.greenery_system.get_surface()
 
-            debug.info(f"Greenery system initialized (total_orders={total_orders})")
+            debug.info("Greenery system initialized (starts white)")
+
+    def add_greenery_at_delivery(self, location_name: str):
+        """Add green patches at a delivery location when order is completed."""
+        from shared.debug_log import debug
+
+        if self.greenery_system is None:
+            return
+
+        # Find the location coordinates by name
+        location_x = None
+        location_y = None
+
+        for loc in self.locations:
+            if loc.get("name") == location_name:
+                location_x = loc.get("x", 0)
+                location_y = loc.get("y", 0)
+                break
+
+        if location_x is None or location_y is None:
+            debug.warning(f"Location '{location_name}' not found for greenery")
+            return
+
+        # Add greenery patches at this location
+        self.greenery_system.add_greenery_at_location(location_x, location_y)
+
+        # Update the greenery entity surface
+        if self.greenery_entity is not None:
+            greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
+            greenery_layer.surface = self.greenery_system.get_surface()
+
+        debug.info(f"Added greenery at {location_name} ({location_x}, {location_y})")
 
     def load_locations(self, json_path: str):
         """Load location markers from JSON file"""
@@ -360,15 +388,6 @@ class MapScreen:
                 camera = esper.component_for_entity(self.camera_entity, Camera)
                 camera.x = self.camera_pos_x
                 camera.y = self.camera_pos_y
-
-        # Update greenery intensity based on completed orders
-        if self.greenery_system is not None:
-            self.greenery_system.update()
-
-            # Update the greenery entity surface
-            if self.greenery_entity is not None:
-                greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
-                greenery_layer.surface = self.greenery_system.get_surface()
 
         esper.process(dt)
         esper.switch_world(self.world_name)

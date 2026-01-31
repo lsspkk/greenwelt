@@ -1,48 +1,47 @@
 """
 Greenery System for Map
 
-This system creates a green tint overlay that darkens the entire map.
-The green tint intensity decreases as orders are completed.
+This system creates green patches on the map at delivery locations.
+The map starts completely white (neutral) and gets greener as orders are delivered.
 
 How it works:
-1. A solid green surface is created the same size as the map
-2. The green overlay is blitted on top of the map with BLEND_RGB_MULT
-3. This creates a "multiply" effect where:
-   - Black stays black
-   - White becomes green
-   - Gray becomes darker green
-   - All colors get a green tint
-4. The intensity decreases as orders are completed:
-   - 0 orders completed = full green tint
-   - All orders completed = no green tint (original map colors)
+1. A white surface is created the same size as the map
+2. When an order is delivered, 5-10 green circles/ellipses are drawn
+   near the delivery location
+3. Circle radii range from 10 to 70 pixels
+4. Circles are placed randomly within ~100 pixels of the location
+5. The greenery surface is blitted on top of the map with BLEND_RGB_MULT
+6. More deliveries = more green patches = greener map
 
-The formula: intensity = 1 - (completed_orders / total_orders)
-
-This creates a visual representation of the city being "overgrown" with plants
-that clears up as the player delivers more orders.
+The multiply blend effect:
+- White (255,255,255) = neutral, no change to map colors
+- Green tint = darkens red/blue channels, keeps green bright
+- This creates natural-looking green patches over the map
 
 Usage:
-    greenery = GreenerySystem(order_manager)
+    greenery = GreenerySystem()
     greenery.initialize(map_width, map_height)
+
+    # When order is delivered:
+    greenery.add_greenery_at_location(x, y)
+
     # In render loop:
-    greenery.update()
     greenery.render(surface, camera_x, camera_y, zoom)
 """
 
 import pygame
-from typing import Optional
+import random
+import math
+from typing import Optional, List, Tuple
 
 
 class GreenerySystem:
     """
-    Manages the green tint overlay that darkens the entire map.
-    The tint fades as orders are completed.
+    Manages green patches that appear on the map at delivery locations.
+    Starts white (neutral) and gets greener with each delivery.
     """
 
-    def __init__(self, order_manager, total_orders: int = 20):
-        self.order_manager = order_manager
-        self.total_orders = total_orders
-
+    def __init__(self):
         # The greenery overlay surface
         self.greenery_surface: Optional[pygame.Surface] = None
 
@@ -50,76 +49,88 @@ class GreenerySystem:
         self.map_width = 0
         self.map_height = 0
 
-        # Current intensity (0.0 to 1.0)
-        # 1.0 = full green tint, 0.0 = no tint
-        self.current_intensity = 0.2
+        # List of all green patches added
+        # Each patch is a list of (x, y, radius_x, radius_y) tuples
+        self.patches: List[List[Tuple[int, int, int, int]]] = []
 
-        # Green color for the tint
-        # This is the color that will be multiplied with the map
-        # Values closer to 255 mean less darkening for that channel
-        # Lower green value = more green tint
-        self.base_green_color = (180, 255, 180)  # Light green tint
-
-        # Cached color based on intensity
-        self.current_color = self.base_green_color
+        # Green color for the patches
+        # Lower values = darker/more saturated green tint
+        self.green_color = (140, 255, 140)
 
     def initialize(self, map_width: int, map_height: int):
         """
         Initialize the greenery surface with map dimensions.
-        Call this after the map is loaded.
+        Call this after the map is loaded. Resets to white (no greenery).
         """
         self.map_width = map_width
         self.map_height = map_height
 
-        # Create the greenery surface (no alpha needed for multiply blend)
+        # Create the greenery surface filled with white (neutral for multiply)
         self.greenery_surface = pygame.Surface((map_width, map_height))
-        self.greenery_surface.fill(self.base_green_color)
+        self.greenery_surface.fill((255, 255, 255))
 
-        # Update with initial intensity
-        self._update_color()
+        # Clear all patches
+        self.patches = []
 
-    def _update_color(self):
+    def add_greenery_at_location(self, location_x: float, location_y: float):
         """
-        Update the greenery surface color based on current intensity.
-
-        At intensity 1.0: use base_green_color (greenish tint)
-        At intensity 0.0: use (255, 255, 255) which is neutral in multiply blend
+        Add green patches near a delivery location.
+        Draws 5-10 circles/ellipses randomly placed near the location.
         """
         if self.greenery_surface is None:
             return
 
-        # Interpolate between white (neutral) and green tint based on intensity
-        base_r, base_g, base_b = self.base_green_color
+        # Decide how many circles to draw (5 to 10)
+        num_circles = random.randint(5, 10)
 
-        # Calculate color: lerp from (255,255,255) to base_green_color
-        r = int(255 - (255 - base_r) * self.current_intensity)
-        g = int(255 - (255 - base_g) * self.current_intensity)
-        b = int(255 - (255 - base_b) * self.current_intensity)
+        patch_shapes = []
 
-        self.current_color = (r, g, b)
-        self.greenery_surface.fill(self.current_color)
+        for i in range(num_circles):
+            # Random offset from location center (-100 to +100 pixels)
+            offset_x = random.randint(-100, 100)
+            offset_y = random.randint(-100, 100)
 
-    def update(self):
-        """
-        Update the greenery intensity based on completed orders.
-        Call this each frame or when orders change.
-        """
-        if self.order_manager is None:
+            center_x = int(location_x + offset_x)
+            center_y = int(location_y + offset_y)
+
+            # Random radius (10 to 70)
+            radius_x = random.randint(10, 70)
+            radius_y = random.randint(10, 70)
+
+            # Clamp to map bounds
+            if center_x < 0:
+                center_x = 0
+            if center_y < 0:
+                center_y = 0
+            if center_x >= self.map_width:
+                center_x = self.map_width - 1
+            if center_y >= self.map_height:
+                center_y = self.map_height - 1
+
+            # Store the shape data
+            patch_shapes.append((center_x, center_y, radius_x, radius_y))
+
+            # Draw the ellipse on the greenery surface
+            self._draw_ellipse(center_x, center_y, radius_x, radius_y)
+
+        # Store this patch for potential future use
+        self.patches.append(patch_shapes)
+
+    def _draw_ellipse(self, center_x: int, center_y: int, radius_x: int, radius_y: int):
+        """Draw a single green ellipse on the greenery surface."""
+        if self.greenery_surface is None:
             return
 
-        completed = self.order_manager.orders_completed_count
+        # Calculate bounding rect for the ellipse
+        left = center_x - radius_x
+        top = center_y - radius_y
+        width = radius_x * 2
+        height = radius_y * 2
 
-        if self.total_orders <= 0:
-            new_intensity = 0.0
-        else:
-            progress = completed / self.total_orders
-            progress = min(1.0, progress)  # Cap at 1.0
-            new_intensity = 1.0 - progress
+        rect = pygame.Rect(left, top, width, height)
 
-        # Only update if intensity changed significantly
-        if abs(new_intensity - self.current_intensity) > 0.001:
-            self.current_intensity = new_intensity
-            self._update_color()
+        # Draw filled ellipse
+        pygame.draw.ellipse(self.greenery_surface, self.green_color, rect)
 
     def render(self, target_surface: pygame.Surface, camera_x: float, camera_y: float, zoom: float):
         """
@@ -128,16 +139,9 @@ class GreenerySystem:
         This should be called AFTER the map is rendered but BEFORE
         other elements (player, UI, etc).
 
-        Uses BLEND_RGB_MULT for multiply effect:
-        - Black stays black
-        - White becomes the overlay color
-        - Colors in between are darkened/tinted
+        Uses BLEND_RGB_MULT for multiply effect.
         """
         if self.greenery_surface is None:
-            return
-
-        # Skip if no tint (intensity is 0)
-        if self.current_intensity < 0.001:
             return
 
         # Calculate the visible portion of the greenery based on camera
@@ -182,26 +186,10 @@ class GreenerySystem:
         # Blit with multiply blend
         target_surface.blit(scaled_greenery, (dest_x, dest_y), special_flags=pygame.BLEND_RGB_MULT)
 
+    def get_patch_count(self) -> int:
+        """Get the number of delivery locations that have been greened."""
+        return len(self.patches)
+
     def get_surface(self) -> Optional[pygame.Surface]:
         """Get the greenery surface (for custom rendering if needed)."""
         return self.greenery_surface
-
-    def get_intensity(self) -> float:
-        """Get the current intensity (0.0 to 1.0)."""
-        return self.current_intensity
-
-    def get_progress_percent(self) -> float:
-        """Get the greenery removal progress as a percentage (0-100)."""
-        if self.order_manager is None:
-            return 0.0
-
-        completed = self.order_manager.orders_completed_count
-        if self.total_orders <= 0:
-            return 100.0
-
-        return (completed / self.total_orders) * 100
-
-    def set_intensity(self, intensity: float):
-        """Manually set the intensity (for testing/debugging)."""
-        self.current_intensity = max(0.0, min(1.0, intensity))
-        self._update_color()

@@ -87,6 +87,10 @@ class MapUI:
         # Set up phone callbacks
         self.phone.on_camera_click = self._on_camera_click
 
+        # Callback for adding greenery at delivery location
+        # Set by main.py to map_screen.add_greenery_at_delivery
+        self.on_greenery_add = None
+
     def set_player_portrait(self, image: pygame.Surface):
         """Set the player portrait from a captured selfie."""
         # Scale to fit portrait size
@@ -146,6 +150,10 @@ class MapUI:
         debug.info(
             f"Order {order.order_id} completed with {plants_count} plants")
 
+        # Add greenery at the delivery location
+        if self.on_greenery_add is not None:
+            self.on_greenery_add(order.customer_location)
+
     def _get_order_for_location(self, location_name: str) -> Optional[Order]:
         """Get accepted order for a specific location, if any."""
         for order in self.order_manager.accepted_orders:
@@ -176,6 +184,7 @@ class MapUI:
 
         # If delivery dialog is open, handle it (blocks other UI)
         if self.delivery_dialog.visible:
+            self.delivery_dialog.update(dt)
             self.delivery_dialog.draw()
             action = self.delivery_dialog.handle_input(input_mgr)
             return action

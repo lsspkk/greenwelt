@@ -1,5 +1,7 @@
 # Delivery dialog - full screen dialog for delivering orders
 import pygame
+import random
+import math
 from pathlib import Path
 from typing import Optional, List
 from shared.shared_components import Order, PlantOrder
@@ -68,12 +70,21 @@ class DeliveryDialog:
         # Callback for when order is completed
         self.on_order_completed = None
 
+        # Celebration animation state
+        self.celebrating = False
+        self.celebration_timer = 0.0
+        self.celebration_duration = 1.5  # 1.5 seconds of celebration
+        self.celebration_lines = []  # List of line data: (angle, length, max_length, speed)
+
     def open(self, order: Order, location_name: str):
         """Open the delivery dialog for an order."""
         self.order = order
         self.location_name = location_name
         self.scroll_offset = 0
         self.visible = True
+        self.celebrating = False
+        self.celebration_timer = 0.0
+        self.celebration_lines = []
         debug.info(f"DeliveryDialog opened for {location_name}")
 
     def close(self):
@@ -81,7 +92,51 @@ class DeliveryDialog:
         self.visible = False
         self.order = None
         self.location_name = ""
+        self.celebrating = False
         debug.info("DeliveryDialog closed")
+
+    def _start_celebration(self):
+        """Start the celebration animation."""
+        self.celebrating = True
+        self.celebration_timer = 0.0
+
+        # Create celebration lines shooting outward from center
+        # Each line has: (angle in radians, current_length, max_length, speed)
+        self.celebration_lines = []
+        num_lines = 24
+        for i in range(num_lines):
+            angle = (2 * math.pi / num_lines) * i
+            max_length = random.randint(400, 700)
+            speed = random.randint(800, 1200)
+            self.celebration_lines.append([angle, 0, max_length, speed])
+
+        debug.info("Celebration animation started")
+
+    def update(self, dt: float):
+        """Update the delivery dialog (celebration animation)."""
+        if not self.visible:
+            return
+
+        if not self.celebrating:
+            return
+
+        self.celebration_timer = self.celebration_timer + dt
+
+        # Update line lengths
+        for line in self.celebration_lines:
+            current_length = line[1]
+            max_length = line[2]
+            speed = line[3]
+
+            if current_length < max_length:
+                new_length = current_length + speed * dt
+                if new_length > max_length:
+                    new_length = max_length
+                line[1] = new_length
+
+        # End celebration after duration
+        if self.celebration_timer >= self.celebration_duration:
+            self.close()
 
     def _load_plant_image(self, filename: str) -> Optional[pygame.Surface]:
         """Load and cache a plant image."""
@@ -122,12 +177,12 @@ class DeliveryDialog:
             self.scroll_offset += 1
 
     def _complete_order(self):
-        """Mark the order as completed."""
+        """Mark the order as completed and start celebration."""
         if self.order is not None:
             debug.info(f"Order {self.order.order_id} completed via delivery dialog")
             if self.on_order_completed:
                 self.on_order_completed(self.order)
-        self.close()
+        self._start_celebration()
 
     def handle_input(self, input_mgr) -> Optional[str]:
         """
@@ -135,6 +190,10 @@ class DeliveryDialog:
         Returns action string or None.
         """
         if not self.visible:
+            return None
+
+        # Don't handle input during celebration animation
+        if self.celebrating:
             return None
 
         # Check scroll buttons
@@ -156,6 +215,11 @@ class DeliveryDialog:
     def draw(self):
         """Draw the full delivery dialog."""
         if not self.visible:
+            return
+
+        # If celebrating, draw celebration animation instead
+        if self.celebrating:
+            self._draw_celebration()
             return
 
         # Fill background
@@ -384,3 +448,41 @@ class DeliveryDialog:
         # Right eye (O)
         pygame.draw.circle(self.screen, face_color, (cx + 18, cy - 5), 12, 3)
         pygame.draw.circle(self.screen, face_color, (cx + 18, cy - 5), 4)
+
+    def _draw_celebration(self):
+        """Draw the celebration animation with green lines and pink text."""
+        # Fill with dark background
+        self.screen.fill((20, 30, 40))
+
+        center_x = self.screen_width // 2
+        center_y = self.screen_height // 2
+
+        # Draw green lines shooting from center
+        green_color = (50, 220, 100)
+        line_width = 4
+
+        for line in self.celebration_lines:
+            angle = line[0]
+            current_length = line[1]
+
+            if current_length > 0:
+                end_x = center_x + int(math.cos(angle) * current_length)
+                end_y = center_y + int(math.sin(angle) * current_length)
+                pygame.draw.line(self.screen, green_color, (center_x, center_y), (end_x, end_y), line_width)
+
+        # Draw pink text on top
+        pink_color = (255, 120, 180)
+
+        # Create larger fonts for the celebration text
+        big_font = pygame.font.Font(None, 120)
+        medium_font = pygame.font.Font(None, 72)
+
+        # "UPEAA!" text
+        upeaa_text = big_font.render("UPEAA!", True, pink_color)
+        upeaa_rect = upeaa_text.get_rect(center=(center_x, center_y - 40))
+        self.screen.blit(upeaa_text, upeaa_rect)
+
+        # "Hienosti tehty!" text
+        hienosti_text = medium_font.render("Hienosti tehty!", True, pink_color)
+        hienosti_rect = hienosti_text.get_rect(center=(center_x, center_y + 40))
+        self.screen.blit(hienosti_text, hienosti_rect)
