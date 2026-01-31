@@ -156,7 +156,7 @@ async def main():
         # Draw UI (only if overlay not covering)
         if not debug.overlay_visible:
             # Draw map-specific UI (location indicator, etc.)
-            map_action = map_ui.draw(current_map, input_mgr)
+            map_action = map_ui.draw(current_map, input_mgr, dt)
             if map_action == "open_incoming_orders":
                 debug.info("Incoming orders phone clicked")
                 map_overlay_action = "open_incoming_orders"

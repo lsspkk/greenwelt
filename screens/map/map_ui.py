@@ -6,6 +6,7 @@ from typing import Optional, Dict
 
 from screens.dialogs.phone import PhoneScreen
 from screens.dialogs.delivery_dialog import DeliveryDialog
+from screens.dialogs.greenhouse import GreenhouseScreen
 from screens.map.order_manager import OrderManager
 from shared.shared_components import Order
 
@@ -68,12 +69,20 @@ class MapUI:
         self.delivery_dialog = DeliveryDialog(screen)
         self.delivery_dialog.on_order_completed = self._on_order_completed
 
+        # Greenhouse dialog
+        self.greenhouse = GreenhouseScreen(screen)
+
         # Layout constants
         self.padding = 30
         self.box_height = 80
 
         # Track nearby location for delivery check
         self.current_nearby_location: Optional[Dict] = None
+
+        # Player inventory - simple dict: plant_filename -> count
+        # Maximum 15 plants total can be carried
+        self.player_inventory = {}
+        self.max_inventory_size = 15
 
         # Set up phone callbacks
         self.phone.on_camera_click = self._on_camera_click
@@ -83,6 +92,44 @@ class MapUI:
         # Scale to fit portrait size
         scaled = pygame.transform.smoothscale(image, (72, 72))
         self.player_portrait = scaled
+
+    def get_inventory_count(self) -> int:
+        """Get total number of plants currently being carried."""
+        total = 0
+        for count in self.player_inventory.values():
+            total = total + count
+        return total
+
+    def can_pick_plant(self) -> bool:
+        """Check if player can pick up more plants."""
+        return self.get_inventory_count() < self.max_inventory_size
+
+    def pick_plant(self, plant_filename: str) -> bool:
+        """Pick up a plant. Returns True if successful."""
+        if not self.can_pick_plant():
+            return False
+
+        if plant_filename in self.player_inventory:
+            self.player_inventory[plant_filename] = self.player_inventory[plant_filename] + 1
+        else:
+            self.player_inventory[plant_filename] = 1
+        return True
+
+    def drop_plant(self, plant_filename: str) -> bool:
+        """Drop a plant. Returns True if successful."""
+        if plant_filename not in self.player_inventory:
+            return False
+
+        if self.player_inventory[plant_filename] <= 0:
+            return False
+
+        self.player_inventory[plant_filename] = self.player_inventory[plant_filename] - 1
+
+        # Remove from dict if count is 0
+        if self.player_inventory[plant_filename] <= 0:
+            del self.player_inventory[plant_filename]
+
+        return True
 
     def _on_camera_click(self):
         """Called when camera button is clicked on the phone."""
@@ -106,7 +153,7 @@ class MapUI:
                 return order
         return None
 
-    def draw(self, map_screen, input_mgr) -> Optional[str]:
+    def draw(self, map_screen, input_mgr, dt: float = 1/60) -> Optional[str]:
         """
         Draw all map UI elements.
         Returns an action string if a button was clicked, None otherwise.
@@ -119,6 +166,13 @@ class MapUI:
             self._draw_location_indicator(nearby)
 
         self._draw_greenhouse_icon()
+
+        # If greenhouse is open, handle it (blocks other UI)
+        if self.greenhouse.visible:
+            self.greenhouse.update(dt)
+            self.greenhouse.draw()
+            action = self.greenhouse.handle_input(input_mgr)
+            return action
 
         # If delivery dialog is open, handle it (blocks other UI)
         if self.delivery_dialog.visible:
@@ -148,8 +202,19 @@ class MapUI:
                 order = self._get_order_for_location(nearby["name"])
                 if order:
                     self.delivery_dialog.open(order, nearby["name"])
+        elif action == "open_greenhouse":
+            self._open_greenhouse()
 
         return action
+
+    def _open_greenhouse(self):
+        """Open the greenhouse dialog."""
+        self.greenhouse.open(
+            self.player_inventory,
+            self.pick_plant,
+            self.drop_plant,
+            self.can_pick_plant
+        )
 
     def _draw_player_portrait(self):
         """Draw player portrait in top left corner."""
@@ -268,6 +333,10 @@ class MapUI:
 
             if input_mgr.clicked_in_rect(incoming_rect):
                 return "open_incoming_orders"
+
+        # Greenhouse icon click
+        if input_mgr.clicked_in_rect(self.greenhouse_icon_rect):
+            return "open_greenhouse"
 
         return None
 
