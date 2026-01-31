@@ -111,7 +111,8 @@ class PhoneScreen:
                 accepted_order = self.visible_order_screen.accepted_order
                 if accepted_order is not None:
                     order_manager.accept_order(accepted_order)
-                    debug.info(f"Order accepted via visible screen: {accepted_order.order_id}")
+                    debug.info(
+                        f"Order accepted via visible screen: {accepted_order.order_id}")
                 return "order_accepted"
             if result == "back_to_orders":
                 # User clicked X - return to order list without accepting
@@ -172,7 +173,8 @@ class PhoneScreen:
         # Check accept button clicks - opens visible order screen first
         for btn_rect, order in self.accept_buttons:
             if input_mgr.clicked_in_rect(btn_rect):
-                debug.info(f"Accept button clicked for order {order.order_id} - opening details")
+                debug.info(
+                    f"Accept button clicked for order {order.order_id} - opening details")
                 self.visible_order_screen.open(order)
                 return "order_details_opened"
 
@@ -523,7 +525,7 @@ class PhoneScreen:
             )
             pygame.draw.rect(self.screen, self.accent_color,
                              btn_rect, border_radius=8)
-            btn_text = self.small_font.render("Hyväksy", True, (255, 255, 255))
+            btn_text = self.small_font.render("Katso", True, (255, 255, 255))
             btn_text_rect = btn_text.get_rect(center=btn_rect.center)
             self.screen.blit(btn_text, btn_text_rect)
 

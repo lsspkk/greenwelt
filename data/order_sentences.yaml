@@ -30,17 +30,13 @@ sentences:
 - sentence_type: plant
   phrase: Saattaa olla aika hankkia {order_plant_name}.
 - sentence_type: plant
-  phrase: Olen pitkään ihaillut kasveja, ja nyt olen valmis ottamaan {order_plant_name}
-    osaksi omaa elämääni.
+  phrase: Olen pitkään ihaillut kasveja, ja nyt olen valmis ottamaan {order_plant_name} osaksi omaa elämääni.
 - sentence_type: plant
-  phrase: Pitkän pohdinnan ja epävarmuuden jälkeen olen ymmärtänyt, että minun todellinen
-    toivoni on kasvattaa {order_plant_name}.
+  phrase: Pitkän pohdinnan ja epävarmuuden jälkeen olen ymmärtänyt, että minun todellinen toivoni on kasvattaa {order_plant_name}.
 - sentence_type: plant
-  phrase: Olen unelmoinut lisää viherkasvien lisäämisestä tilaani, ja {order_plant_name}
-    tuntuu täydelliseltä valinnalta.
+  phrase: Olen unelmoinut lisää viherkasvien lisäämisestä tilaani, ja {order_plant_name} tuntuu täydelliseltä valinnalta.
 - sentence_type: plant
-  phrase: Olen hitaasti, vuosien varrella, alkanut kiinnostua ja nyt toivon todella
-    saada {order_plant_name}.
+  phrase: Olen hitaasti, vuosien varrella, alkanut kiinnostua ja nyt toivon todella saada {order_plant_name}.
 - sentence_type: plant
   phrase: Olen vihdoin päättänyt kuunnella sydäntäni ja pyytää {order_plant_name} -kasvia.
 - sentence_type: amount

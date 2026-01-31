@@ -63,7 +63,7 @@ class MapUI:
         self.greenhouse_icon_border = self.greenhouse_icon_rect.inflate(12, 12)
 
         # Door button (below accepted phone icon) - for delivery when at order location
-        self.door_button_rect = pygame.Rect(32, 220, 84, 84)
+        self.door_button_rect = pygame.Rect(32, 510, 84, 84)
         self.door_button_border = self.door_button_rect.inflate(12, 12)
 
         # Delivery dialog
@@ -191,8 +191,10 @@ class MapUI:
         from shared.debug_log import debug
 
         # Complete the order with scoring info
-        self.order_manager.complete_order(order, plants_delivered, is_full_delivery)
-        debug.info(f"Order {order.order_id} completed: {plants_delivered} plants, full={is_full_delivery}")
+        self.order_manager.complete_order(
+            order, plants_delivered, is_full_delivery)
+        debug.info(
+            f"Order {order.order_id} completed: {plants_delivered} plants, full={is_full_delivery}")
 
         # Add greenery at the delivery location
         if self.on_greenery_add is not None:
@@ -217,7 +219,8 @@ class MapUI:
                 else:
                     self.player_inventory[plant_filename] = new_amount
 
-                debug.debug(f"Delivered {amount}x {plant_filename}, remaining: {max(0, new_amount)}")
+                debug.debug(
+                    f"Delivered {amount}x {plant_filename}, remaining: {max(0, new_amount)}")
 
     def _get_order_for_location(self, location_name: str) -> Optional[Order]:
         """Get accepted order for a specific location, if any."""
@@ -320,7 +323,8 @@ class MapUI:
                 distance = (dx * dx + dy * dy) ** 0.5
 
                 is_inside_radius = distance <= self.greenhouse_pick_radius
-                debug.debug(f"Player distance to greenhouse: {distance:.1f}, radius: {self.greenhouse_pick_radius}")
+                debug.debug(
+                    f"Player distance to greenhouse: {distance:.1f}, radius: {self.greenhouse_pick_radius}")
 
         # Get greenhouse inventory for display
         greenhouse_inventory = {}

@@ -35,7 +35,7 @@ class PhoneVisibleOrderScreen:
 
         # Fonts
         self.title_font = pygame.font.Font(None, 42)
-        self.text_font = pygame.font.Font(None, 34)
+        self.text_font = pygame.font.Font(None, 30)
         self.small_font = pygame.font.Font(None, 28)
         self.button_font = pygame.font.Font(None, 32)
 
@@ -192,7 +192,7 @@ class PhoneVisibleOrderScreen:
             line_surf = self.text_font.render(line, True, self.text_color)
             line_rect = line_surf.get_rect(centerx=self.phone_rect.centerx, top=current_y)
             screen.blit(line_surf, line_rect)
-            current_y += 40
+            current_y += 34
 
         # Draw amount text (how many)
         amount_text = plant.amount_text
@@ -200,14 +200,14 @@ class PhoneVisibleOrderScreen:
             amount_text = f"Määrä: {plant.amount} kpl"
 
         # Add some space before amount text
-        current_y += 30
+        current_y += 24
 
         wrapped_amount_lines = self._wrap_text(amount_text, content_width - 20)
         for line in wrapped_amount_lines:
             line_surf = self.text_font.render(line, True, self.text_secondary_color)
             line_rect = line_surf.get_rect(centerx=self.phone_rect.centerx, top=current_y)
             screen.blit(line_surf, line_rect)
-            current_y += 40
+            current_y += 34
 
         # Draw page indicator
         page_text = f"{self.current_plant_index + 1}/{len(self.order.plants)}"

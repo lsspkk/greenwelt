@@ -3,7 +3,8 @@
 Road Painter Tool - Draw roads on the map
 
 Controls:
-  - Click & Drag: Draw road
+  - T: Switch to Line mode (default) - click start, click end
+  - A: Switch to Paint mode - click and drag to paint
   - Mouse Wheel / +/-: Change brush width
   - U: Undo last stroke
   - C: Clear all roads
@@ -23,8 +24,8 @@ import sys
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configuration
-MAP_IMAGE = "assets/map1.png"
-OUTPUT_FILE = "data/map1_roads.json"
+MAP_IMAGE = "assets/map2.png"
+OUTPUT_FILE = "data/map2_roads.json"
 
 # Road settings
 ROAD_COLOR = (100, 100, 100)
@@ -42,6 +43,8 @@ message_timer = 0
 show_help = False
 running = True
 is_drawing = False
+draw_mode = "line"  # "line" or "paint"
+click_start = None  # For line mode
 
 
 def set_message(text, duration=90):
@@ -52,7 +55,7 @@ def set_message(text, duration=90):
 
 
 def load_roads():
-    """Load roads from JSON file"""
+    """Load roads from JSON file"""y
     global strokes
     if os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, "r") as f:
@@ -128,7 +131,7 @@ def finish_stroke():
 
 def handle_event(event):
     """Handle a single pygame event"""
-    global running, show_help
+    global running, show_help, draw_mode, is_drawing, click_start, current_stroke, strokes
 
     if event.type == pygame.QUIT:
         running = False
@@ -150,30 +153,53 @@ def handle_event(event):
             change_width(5)
         elif event.key == pygame.K_MINUS:
             change_width(-5)
+        elif event.key == pygame.K_t:
+            draw_mode = "line"
+            is_drawing = False
+            click_start = None
+            current_stroke = None
+            set_message("Line mode: click start, click end", 120)
+        elif event.key == pygame.K_a:
+            draw_mode = "paint"
+            is_drawing = False
+            click_start = None
+            current_stroke = None
+            set_message("Paint mode: click and drag to paint", 120)
 
     elif event.type == pygame.MOUSEBUTTONDOWN:
-        global is_drawing, click_start
         if event.button == 1:
-            if not is_drawing:
-                click_start = event.pos
-                is_drawing = True
+            if draw_mode == "line":
+                # Line mode: first click sets start, second click draws line
+                if not is_drawing:
+                    click_start = event.pos
+                    is_drawing = True
+                else:
+                    # Second click: finish line
+                    stroke = {
+                        "points": [click_start, event.pos],
+                        "width": brush_width
+                    }
+                    strokes.append(stroke)
+                    is_drawing = False
+                    click_start = None
             else:
-                # Second click: finish line
-                current_stroke = {
-                    "points": [click_start, event.pos],
-                    "width": brush_width
-                }
-                strokes.append(current_stroke)
-                current_stroke = None
-                is_drawing = False
-                click_start = None
+                # Paint mode: start a new stroke
+                start_stroke(event.pos)
         elif event.button == 4:  # Scroll up
             change_width(5)
         elif event.button == 5:  # Scroll down
             change_width(-5)
 
+    elif event.type == pygame.MOUSEBUTTONUP:
+        if event.button == 1:
+            if draw_mode == "paint":
+                # Paint mode: finish the stroke on mouse upy
+                finish_stroke()
+
     elif event.type == pygame.MOUSEMOTION:
-        pass  # Disable drag-to-draw for click-to-line mode
+        if draw_mode == "paint" and is_drawing:
+            # Paint mode: add points while dragging
+            add_point(event.pos)
 
     elif event.type == pygame.MOUSEWHEEL:
         change_width(event.y * 5)
@@ -233,7 +259,7 @@ def draw_ui_panel(screen, font):
     """Draw the info panel"""
     global message_timer
 
-    panel_rect = pygame.Rect(10, 10, 250, 100)
+    panel_rect = pygame.Rect(10, 10, 250, 125)
     panel_surf = pygame.Surface((panel_rect.width, panel_rect.height))
     panel_surf.fill((20, 25, 35))
     panel_surf.set_alpha(220)
@@ -241,6 +267,11 @@ def draw_ui_panel(screen, font):
     pygame.draw.rect(screen, (80, 90, 110), panel_rect, 2, border_radius=6)
 
     y = 18
+    mode_name = "Line" if draw_mode == "line" else "Paint"
+    mode_text = font.render(f"Mode: {mode_name} (T/A)", True, (255, 220, 100))
+    screen.blit(mode_text, (20, y))
+
+    y += 26
     width_text = font.render(f"Brush: {brush_width}px", True, (200, 200, 200))
     screen.blit(width_text, (20, y))
 
@@ -260,7 +291,8 @@ def draw_help_overlay(screen, font, img_w, img_h):
     help_lines = [
         "=== ROAD PAINTER ===",
         "",
-        "Click & Drag = Draw road",
+        "T = Line mode (click start, click end)",
+        "A = Paint mode (click and drag)",
         "Mouse Wheel / +/- = Change brush width",
         "U = Undo last stroke",
         "C = Clear all roads",
@@ -285,7 +317,7 @@ def draw_help_overlay(screen, font, img_w, img_h):
 
 def draw_hint(screen, small_font, img_w, img_h):
     """Draw controls hint at bottom"""
-    hint = "H=Help  S=Save  U=Undo  C=Clear  Wheel=Size  Q=Quit"
+    hint = "T=Line  A=Paint  H=Help  S=Save  U=Undo  C=Clear  Wheel=Size  Q=Quit"
     hint_surf = small_font.render(hint, True, (120, 120, 120))
     screen.blit(hint_surf, (img_w // 2 - hint_surf.get_width() // 2, img_h - 25))
 
@@ -314,7 +346,7 @@ def main():
     if os.path.exists(OUTPUT_FILE):
         load_roads()
 
-    set_message("Draw roads by clicking and dragging", 180)
+    set_message("Line mode: click start, click end (A=paint)", 180)
 
     while running:
         for event in pygame.event.get():
