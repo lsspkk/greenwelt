@@ -1,0 +1,170 @@
+[
+  {
+    "name": "Kasvikauppa",
+    "x": 959,
+    "y": 135,
+    "type": "shop",
+    "tolerance": 50
+  },
+  {
+    "name": "PWE",
+    "x": 1156,
+    "y": 235,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Elisa",
+    "x": 1247,
+    "y": 299,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Tomisto",
+    "x": 825,
+    "y": 749,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Phnkki",
+    "x": 399,
+    "y": 147,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Ristovena",
+    "x": 901,
+    "y": 513,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Minil\u00e4",
+    "x": 1028,
+    "y": 412,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Koulu",
+    "x": 863,
+    "y": 262,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Hotelli",
+    "x": 135,
+    "y": 737,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Elokuva",
+    "x": 172,
+    "y": 844,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Ponostaja",
+    "x": 411,
+    "y": 815,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Cafe europa",
+    "x": 1120,
+    "y": 698,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Ikunuravintola",
+    "x": 1204,
+    "y": 771,
+    "type": "restaurant",
+    "tolerance": 50
+  },
+  {
+    "name": "Spetlas",
+    "x": 641,
+    "y": 709,
+    "type": "office",
+    "tolerance": 50
+  },
+  {
+    "name": "Ruusu",
+    "x": 278,
+    "y": 340,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Ulpu",
+    "x": 282,
+    "y": 382,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Tinja",
+    "x": 286,
+    "y": 423,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Hilda",
+    "x": 285,
+    "y": 469,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Adalia",
+    "x": 284,
+    "y": 516,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Tehilla",
+    "x": 287,
+    "y": 568,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Mio",
+    "x": 358,
+    "y": 355,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Naomi",
+    "x": 456,
+    "y": 562,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Solina",
+    "x": 321,
+    "y": 732,
+    "type": "house",
+    "tolerance": 50
+  },
+  {
+    "name": "Olavi",
+    "x": 548,
+    "y": 775,
+    "type": "house",
+    "tolerance": 50
+  }
+]

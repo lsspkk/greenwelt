@@ -39,10 +39,16 @@ class OrderManager:
         # Progress tracking
         self.orders_completed_count: int = 0
         self.plants_delivered_count: int = 0
+        self.total_score: int = 0
 
         # Completion requirements (set from map config)
         self.orders_required: int = 10
         self.plants_required: int = 0
+        self.score_required: int = 0
+
+        # Scoring config (set from map config)
+        self.points_per_plant: int = 10
+        self.full_order_bonus: int = 20
 
         # Flag for map completion
         self.map_completed: bool = False
@@ -110,14 +116,18 @@ class OrderManager:
 
     def set_config(self, batch_size: int, batch_delay: float, accept_time: float,
                    orders_required: int = 0, plants_required: int = 0,
-                   active_order_limit: int = 6):
-        """Set timing and completion config from map settings."""
+                   active_order_limit: int = 6, score_required: int = 0,
+                   points_per_plant: int = 10, full_order_bonus: int = 20):
+        """Set timing, completion, and scoring config from map settings."""
         self.batch_size = batch_size
         self.batch_delay = batch_delay
         self.accept_time = accept_time
         self.orders_required = orders_required
         self.plants_required = plants_required
         self.active_order_limit = active_order_limit
+        self.score_required = score_required
+        self.points_per_plant = points_per_plant
+        self.full_order_bonus = full_order_bonus
 
     def select_next_batch(self):
         """Select next batch of orders from available pool, avoiding same location."""
@@ -202,8 +212,15 @@ class OrderManager:
         self.accepted_orders.append(order)
         debug.info(f"Order ACCEPTED: {order.order_id} ({order.customer_location})")
 
-    def complete_order(self, order: Order, plants_count: int):
-        """Mark order as completed after delivery."""
+    def complete_order(self, order: Order, plants_delivered: int, is_full_delivery: bool):
+        """
+        Mark order as completed after delivery.
+
+        Args:
+            order: The order being completed
+            plants_delivered: Number of plants actually delivered
+            is_full_delivery: Whether all requested plants were delivered
+        """
         if order in self.accepted_orders:
             self.accepted_orders.remove(order)
 
@@ -211,7 +228,15 @@ class OrderManager:
         self.completed_orders.append(order)
 
         self.orders_completed_count += 1
-        self.plants_delivered_count += plants_count
+        self.plants_delivered_count += plants_delivered
+
+        # Calculate score: points per plant + bonus for full delivery
+        earned_points = plants_delivered * self.points_per_plant
+        if is_full_delivery:
+            earned_points = earned_points + self.full_order_bonus
+
+        self.total_score = self.total_score + earned_points
+        debug.info(f"Order completed: {plants_delivered} plants, full={is_full_delivery}, +{earned_points} points (total: {self.total_score})")
 
     def check_completion(self) -> bool:
         """Check if map completion requirements are met."""
@@ -220,6 +245,7 @@ class OrderManager:
 
         orders_met = False
         plants_met = False
+        score_met = False
 
         if self.orders_required > 0:
             orders_met = self.orders_completed_count >= self.orders_required
@@ -227,10 +253,15 @@ class OrderManager:
         if self.plants_required > 0:
             plants_met = self.plants_delivered_count >= self.plants_required
 
+        if self.score_required > 0:
+            score_met = self.total_score >= self.score_required
+
         # Meet ANY requirement (OR logic)
         if self.orders_required > 0 and orders_met:
             self.map_completed = True
         elif self.plants_required > 0 and plants_met:
+            self.map_completed = True
+        elif self.score_required > 0 and score_met:
             self.map_completed = True
 
         return self.map_completed

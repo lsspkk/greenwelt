@@ -2,12 +2,13 @@
 
 import random
 import pygame
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Callable
 
 from screens.dialogs.phone import PhoneScreen
 from screens.dialogs.delivery_dialog import DeliveryDialog
 from screens.dialogs.greenhouse import GreenhouseScreen
 from screens.map.order_manager import OrderManager
+from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
 from shared.shared_components import Order
 
 
@@ -68,6 +69,7 @@ class MapUI:
         # Delivery dialog
         self.delivery_dialog = DeliveryDialog(screen)
         self.delivery_dialog.on_order_completed = self._on_order_completed
+        self.delivery_dialog.on_plants_delivered = self._on_plants_delivered
 
         # Greenhouse dialog
         self.greenhouse = GreenhouseScreen(screen)
@@ -91,11 +93,33 @@ class MapUI:
         # Set by main.py to map_screen.add_greenery_at_delivery
         self.on_greenery_add = None
 
+        # Greenhouse inventory system - manages plant supply
+        self.greenhouse_inventory_system: Optional[GreenhouseInventorySystem] = None
+
+        # Greenhouse location and config (set from map locations and config)
+        self.greenhouse_location: Optional[Dict] = None
+        self.greenhouse_pick_radius = 100.0
+
+        # Callback to get current player position (set by main.py)
+        self.get_player_position: Optional[Callable] = None
+
     def set_player_portrait(self, image: pygame.Surface):
         """Set the player portrait from a captured selfie."""
         # Scale to fit portrait size
         scaled = pygame.transform.smoothscale(image, (72, 72))
         self.player_portrait = scaled
+
+    def set_greenhouse_system(self, greenhouse_system: GreenhouseInventorySystem):
+        """Set the greenhouse inventory system reference."""
+        self.greenhouse_inventory_system = greenhouse_system
+
+    def set_greenhouse_location(self, location: Dict):
+        """Set the greenhouse/shop location for distance calculations."""
+        self.greenhouse_location = location
+
+    def set_greenhouse_config(self, pick_radius: float):
+        """Set greenhouse configuration from map config."""
+        self.greenhouse_pick_radius = pick_radius
 
     def get_inventory_count(self) -> int:
         """Get total number of plants currently being carried."""
@@ -109,10 +133,20 @@ class MapUI:
         return self.get_inventory_count() < self.max_inventory_size
 
     def pick_plant(self, plant_filename: str) -> bool:
-        """Pick up a plant. Returns True if successful."""
+        """
+        Pick up a plant from the greenhouse.
+        Takes from greenhouse inventory and adds to player inventory.
+        Returns True if successful.
+        """
         if not self.can_pick_plant():
             return False
 
+        # Try to take from greenhouse inventory
+        if self.greenhouse_inventory_system is not None:
+            if not self.greenhouse_inventory_system.take_plant(plant_filename):
+                return False
+
+        # Add to player inventory
         if plant_filename in self.player_inventory:
             self.player_inventory[plant_filename] = self.player_inventory[plant_filename] + 1
         else:
@@ -120,13 +154,23 @@ class MapUI:
         return True
 
     def drop_plant(self, plant_filename: str) -> bool:
-        """Drop a plant. Returns True if successful."""
+        """
+        Drop a plant back to the greenhouse.
+        Removes from player inventory and returns to greenhouse.
+        Returns True if successful.
+        """
         if plant_filename not in self.player_inventory:
             return False
 
         if self.player_inventory[plant_filename] <= 0:
             return False
 
+        # Try to return to greenhouse inventory
+        if self.greenhouse_inventory_system is not None:
+            if not self.greenhouse_inventory_system.return_plant(plant_filename):
+                return False
+
+        # Remove from player inventory
         self.player_inventory[plant_filename] = self.player_inventory[plant_filename] - 1
 
         # Remove from dict if count is 0
@@ -142,17 +186,38 @@ class MapUI:
         from shared.debug_log import debug
         debug.info("Camera button clicked - selfie capture requested")
 
-    def _on_order_completed(self, order: Order):
+    def _on_order_completed(self, order: Order, plants_delivered: int, is_full_delivery: bool):
         """Called when an order is completed via delivery dialog."""
         from shared.debug_log import debug
-        plants_count = sum(p.amount for p in order.plants)
-        self.order_manager.complete_order(order, plants_count)
-        debug.info(
-            f"Order {order.order_id} completed with {plants_count} plants")
+
+        # Complete the order with scoring info
+        self.order_manager.complete_order(order, plants_delivered, is_full_delivery)
+        debug.info(f"Order {order.order_id} completed: {plants_delivered} plants, full={is_full_delivery}")
 
         # Add greenery at the delivery location
         if self.on_greenery_add is not None:
             self.on_greenery_add(order.customer_location)
+
+    def _on_plants_delivered(self, delivered_amounts: Dict[str, int]):
+        """
+        Called after delivery to remove plants from player inventory.
+
+        Args:
+            delivered_amounts: Dict of plant filename -> amount delivered
+        """
+        from shared.debug_log import debug
+
+        for plant_filename, amount in delivered_amounts.items():
+            if plant_filename in self.player_inventory:
+                current = self.player_inventory[plant_filename]
+                new_amount = current - amount
+
+                if new_amount <= 0:
+                    del self.player_inventory[plant_filename]
+                else:
+                    self.player_inventory[plant_filename] = new_amount
+
+                debug.debug(f"Delivered {amount}x {plant_filename}, remaining: {max(0, new_amount)}")
 
     def _get_order_for_location(self, location_name: str) -> Optional[Order]:
         """Get accepted order for a specific location, if any."""
@@ -160,6 +225,14 @@ class MapUI:
             if order.customer_location == location_name:
                 return order
         return None
+
+    def _can_deliver_order(self, order: Order) -> bool:
+        """Check if player has at least one plant to deliver for this order."""
+        for plant in order.plants:
+            player_has = self.player_inventory.get(plant.filename, 0)
+            if player_has > 0:
+                return True
+        return False
 
     def draw(self, map_screen, input_mgr, dt: float = 1/60) -> Optional[str]:
         """
@@ -210,19 +283,57 @@ class MapUI:
             if nearby:
                 order = self._get_order_for_location(nearby["name"])
                 if order:
-                    self.delivery_dialog.open(order, nearby["name"])
+                    self.delivery_dialog.open(
+                        order,
+                        nearby["name"],
+                        self.player_inventory,
+                        self.order_manager.points_per_plant,
+                        self.order_manager.full_order_bonus
+                    )
         elif action == "open_greenhouse":
             self._open_greenhouse()
 
         return action
 
     def _open_greenhouse(self):
-        """Open the greenhouse dialog."""
+        """
+        Open the greenhouse dialog.
+
+        Calculates if player is inside the pick radius to determine
+        whether they can interact with plants or just view status.
+        """
+        from shared.debug_log import debug
+
+        # Check if player is inside greenhouse pick radius
+        is_inside_radius = False
+
+        if self.greenhouse_location is not None and self.get_player_position is not None:
+            player_pos = self.get_player_position()
+            if player_pos is not None:
+                player_x, player_y = player_pos
+                greenhouse_x = self.greenhouse_location.get("x", 0)
+                greenhouse_y = self.greenhouse_location.get("y", 0)
+
+                # Calculate distance
+                dx = player_x - greenhouse_x
+                dy = player_y - greenhouse_y
+                distance = (dx * dx + dy * dy) ** 0.5
+
+                is_inside_radius = distance <= self.greenhouse_pick_radius
+                debug.debug(f"Player distance to greenhouse: {distance:.1f}, radius: {self.greenhouse_pick_radius}")
+
+        # Get greenhouse inventory for display
+        greenhouse_inventory = {}
+        if self.greenhouse_inventory_system is not None:
+            greenhouse_inventory = self.greenhouse_inventory_system.get_inventory_copy()
+
         self.greenhouse.open(
             self.player_inventory,
+            greenhouse_inventory,
             self.pick_plant,
             self.drop_plant,
-            self.can_pick_plant
+            self.can_pick_plant,
+            is_inside_radius
         )
 
     def _draw_player_portrait(self):
@@ -308,18 +419,26 @@ class MapUI:
 
         # Door button: Show when nearby location has an accepted order
         show_door_button = False
+        can_deliver = False
         if nearby is not None:
             order = self._get_order_for_location(nearby["name"])
             if order is not None:
                 show_door_button = True
+                can_deliver = self._can_deliver_order(order)
 
         if show_door_button:
-            door_color = (100, 160, 100)  # Green tint for delivery
+            # Green if can deliver, gray if player has no matching plants
+            if can_deliver:
+                door_color = (100, 160, 100)
+            else:
+                door_color = (70, 70, 80)
+
             pygame.draw.rect(self.screen, door_color,
                              self.door_button_border, border_radius=12)
-            self._draw_door_icon(self.door_button_rect)
+            self._draw_door_icon(self.door_button_rect, enabled=can_deliver)
 
-            if input_mgr.clicked_in_rect(self.door_button_rect):
+            # Only allow opening delivery dialog if player can deliver something
+            if can_deliver and input_mgr.clicked_in_rect(self.door_button_rect):
                 return "open_delivery"
 
         # Bottom icon: Incoming orders (alert phone) - only if visible orders exist
@@ -393,11 +512,16 @@ class MapUI:
         pygame.draw.circle(self.screen, (255, 160, 120), (cx - 18, cy + 5), 6)
         pygame.draw.circle(self.screen, (255, 160, 120), (cx + 18, cy + 5), 6)
 
-    def _draw_door_icon(self, rect: pygame.Rect):
+    def _draw_door_icon(self, rect: pygame.Rect, enabled: bool = True):
         """Draw a door icon for the delivery button."""
         cx = rect.centerx
         cy = rect.centery
-        icon_color = (255, 255, 255)
+
+        # White when enabled, dark gray when disabled
+        if enabled:
+            icon_color = (255, 255, 255)
+        else:
+            icon_color = (100, 100, 110)
 
         # Door frame (rectangle)
         door_width = 36

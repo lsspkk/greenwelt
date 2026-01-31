@@ -26,8 +26,8 @@ import sys
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configuration
-MAP_IMAGE = "assets/map1.png"
-OUTPUT_FILE = "data/map1_locations.json"
+MAP_IMAGE = "assets/map2.png"
+OUTPUT_FILE = "data/map2_locations.json"
 TOLERANCE = 50
 
 # Marker type colors
@@ -182,7 +182,8 @@ def draw_markers(screen, small_font):
         pygame.draw.circle(screen, color, (x, y), 8)
 
         name_surf = small_font.render(marker["name"], True, (255, 255, 255))
-        name_bg = pygame.Surface((name_surf.get_width() + 6, name_surf.get_height() + 2))
+        name_bg = pygame.Surface(
+            (name_surf.get_width() + 6, name_surf.get_height() + 2))
         name_bg.fill((0, 0, 0))
         name_bg.set_alpha(180)
         screen.blit(name_bg, (x - name_surf.get_width() // 2 - 3, y + 12))
@@ -209,7 +210,8 @@ def draw_ui_panel(screen, font):
     pygame.draw.rect(screen, (80, 90, 110), panel_rect, 2, border_radius=6)
 
     y = 18
-    type_text = font.render(f"Type: {current_type.upper()}", True, MARKER_TYPES[current_type]["color"])
+    type_text = font.render(
+        f"Type: {current_type.upper()}", True, MARKER_TYPES[current_type]["color"])
     screen.blit(type_text, (20, y))
 
     y += 28
@@ -250,7 +252,8 @@ def draw_help_overlay(screen, font, img_w, img_h):
         "Q/Esc = Quit",
     ]
     help_h = len(help_lines) * 26 + 20
-    help_rect = pygame.Rect(img_w // 2 - 200, img_h // 2 - help_h // 2, 400, help_h)
+    help_rect = pygame.Rect(img_w // 2 - 200, img_h //
+                            2 - help_h // 2, 400, help_h)
     help_surf = pygame.Surface((help_rect.width, help_rect.height))
     help_surf.fill((20, 25, 35))
     help_surf.set_alpha(240)
@@ -267,7 +270,8 @@ def draw_hint(screen, small_font, img_w, img_h):
     """Draw controls hint at bottom"""
     hint = "H=Help  S=Save  1-4=Type  Click=Add  Q=Quit"
     hint_surf = small_font.render(hint, True, (120, 120, 120))
-    screen.blit(hint_surf, (img_w // 2 - hint_surf.get_width() // 2, img_h - 25))
+    screen.blit(hint_surf, (img_w // 2 -
+                hint_surf.get_width() // 2, img_h - 25))
 
 
 def main():

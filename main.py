@@ -93,9 +93,19 @@ async def main():
                 current_map.load_locations("data/map1_locations.json")
                 current_map.load_orders("data/map1_orders.json")
                 current_map.initialize_greenery()
+                current_map.initialize_greenhouse_inventory()
                 current_map.initialize_start_position()
+
+                # Create map UI and wire up systems
                 map_ui = MapUI(screen, current_map.order_manager)
                 map_ui.on_greenery_add = current_map.add_greenery_at_delivery
+
+                # Set up greenhouse system integration
+                map_ui.set_greenhouse_system(current_map.greenhouse_inventory_system)
+                map_ui.set_greenhouse_location(current_map.get_greenhouse_location())
+                map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
+                map_ui.get_player_position = current_map.get_player_position
+
                 game_state = "map"
                 debug.info("Map screen initialized")
             elif action == "exit":

@@ -2,7 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+
+
 # Plant Courier - WASM/Pygbag Project
+
+
+## TODO
+- ääniä eri tilanteisiin, koputus, kiitos, tilaus ilmoitus, kasvit haettu, pyöräily
+- toinen taso
+- kartta läpäisty näyttö
+- peli läpi
+
+
 
 ## Code Style Guidelines
 

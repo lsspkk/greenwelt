@@ -6,6 +6,7 @@ from typing import Optional, List, Dict
 
 from screens.map.order_manager import OrderManager, OrderSystem
 from screens.map.greenery_system import GreenerySystem
+from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
 from shared.shared_components import Position, Velocity, DotRenderable
 from .components import MapBackground, RoadLayer, PlayerOnMap, MapMarker, Camera, GreeneryLayer
 from .road_collision_system import RoadCollisionSystem
@@ -33,6 +34,9 @@ class MapScreen:
         self.greenery_system = None
         self.greenery_entity = None
         self.map_config = {}
+
+        # Greenhouse inventory system - manages plant supply and growth
+        self.greenhouse_inventory_system = None
 
     def initialize(self):
         """Set up the ECS world for this map"""
@@ -90,7 +94,10 @@ class MapScreen:
                     accept_time=self.map_config.get("accept_time", 15.0),
                     orders_required=self.map_config.get("orders_required", 10),
                     plants_required=self.map_config.get("plants_required", 0),
-                    active_order_limit=self.map_config.get("active_order_limit", 6)
+                    active_order_limit=self.map_config.get("active_order_limit", 6),
+                    score_required=self.map_config.get("score_required", 0),
+                    points_per_plant=self.map_config.get("points_per_plant", 10),
+                    full_order_bonus=self.map_config.get("full_order_bonus", 20)
                 )
 
             debug.info(f"Loaded map config from {json_path}")
@@ -190,6 +197,39 @@ class MapScreen:
         except Exception as e:
             print(f"Failed to load roads: {e}")
 
+    def initialize_greenhouse_inventory(self):
+        """Initialize the greenhouse inventory system after config is loaded."""
+        from shared.debug_log import debug
+
+        # Create the greenhouse inventory system
+        self.greenhouse_inventory_system = GreenhouseInventorySystem()
+
+        # Apply config if present
+        greenhouse_config = self.map_config.get("greenhouse", {})
+        self.greenhouse_inventory_system.set_config(
+            initial_amount=greenhouse_config.get("plant_initial_amount", 1),
+            grow_amount=greenhouse_config.get("plant_grow_amount", 3),
+            grow_time_min=greenhouse_config.get("plant_grow_time_min", 30.0),
+            grow_time_max=greenhouse_config.get("plant_grow_time_max", 60.0),
+            inventory_max=greenhouse_config.get("plant_inventory_max", 7)
+        )
+
+        # Initialize the system (loads plant list and sets initial inventory)
+        self.greenhouse_inventory_system.initialize()
+        debug.info("Greenhouse inventory system initialized")
+
+    def get_greenhouse_location(self) -> Optional[Dict]:
+        """Get the shop/greenhouse location from the locations list."""
+        for loc in self.locations:
+            if loc.get("type") == "shop":
+                return loc
+        return None
+
+    def get_greenhouse_pick_radius(self) -> float:
+        """Get the greenhouse pick radius from config."""
+        greenhouse_config = self.map_config.get("greenhouse", {})
+        return greenhouse_config.get("pick_radius", 100.0)
+
     def initialize_greenery(self):
         """Initialize the greenery system after map and roads are loaded"""
         from shared.debug_log import debug
@@ -243,6 +283,11 @@ class MapScreen:
 
         # Add greenery patches at this location
         self.greenery_system.add_greenery_at_location(location_x, location_y)
+
+        # Apply road mask to keep roads unaffected by greenery
+        road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
+        if road_layer.road_mask is not None:
+            self.greenery_system.apply_road_mask(road_layer.road_mask)
 
         # Update the greenery entity surface
         if self.greenery_entity is not None:
@@ -388,6 +433,10 @@ class MapScreen:
                 camera = esper.component_for_entity(self.camera_entity, Camera)
                 camera.x = self.camera_pos_x
                 camera.y = self.camera_pos_y
+
+        # Update greenhouse inventory system (handles plant growth timer)
+        if self.greenhouse_inventory_system is not None:
+            self.greenhouse_inventory_system.update(dt)
 
         esper.process(dt)
         esper.switch_world(self.world_name)
