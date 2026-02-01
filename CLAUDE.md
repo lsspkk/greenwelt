@@ -7,15 +7,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Plant Courier - WASM/Pygbag Project
 
-
-## TODO
-- ääniä eri tilanteisiin, koputus, kiitos, tilaus ilmoitus, kasvit haettu, pyöräily
-- toinen taso
-- kartta läpäisty näyttö
-- peli läpi
-
-
-
 ## Code Style Guidelines
 
 **Write code for Python novices.** Prioritize readability over cleverness.
@@ -63,33 +54,12 @@ def get_closest(self, pos):
     return closest_target
 ```
 
-## Architecture: ECS-First Design
+## Architecture: ECS where needed
 
-Use **esper ECS for almost everything**. Game state lives in components, logic lives in systems.
+Use **esper ECS where its natural**. For example in the map, there could be moving NPCs etc. currently theres no need to use ECS everywhere. Game relies mostly to the order
+manager, order states, and map ui.
 
-### Components (data only)
 
-```python
-class Position:
-    def __init__(self, x: float, y: float):
-        self.x = x
-        self.y = y
-
-class Health:
-    def __init__(self, current: int, maximum: int):
-        self.current = current
-        self.maximum = maximum
-```
-
-### Systems (logic only)
-
-```python
-class MovementSystem(esper.Processor):
-    def process(self, dt: float):
-        for ent, (pos, vel) in self.world.get_components(Position, Velocity):
-            pos.x = pos.x + vel.vx * dt
-            pos.y = pos.y + vel.vy * dt
-```
 
 ### When NOT to use ECS
 
@@ -194,6 +164,10 @@ uv sync
 ## WASM/Pygbag Critical Requirements
 
 ### 1. Bundle Third-Party Libraries Directly
+
+If you add some library via `requirements.txt`, it may prevent game loading.
+Deploy often and check if after starting you get just black screen,
+might be caused by missing library and solution is to bundle it directl into WASM package.
 
 **Pygbag does NOT reliably load packages from PyPI at runtime.** Even if the console shows packages being fetched, they may not be mounted in time for import.
 

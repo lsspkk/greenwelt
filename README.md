@@ -37,3 +37,22 @@ https://pygame-web.github.io/
 [3]: https://deepwiki.com/pygame-web/pygbag/3-user-guide?utm_source=chatgpt.com 'User Guide | pygame-web/pygbag | DeepWiki'
 [4]: https://deepwiki.com/pygame-web/pygbag/4-architecture?utm_source=chatgpt.com 'Architecture | pygame-web/pygbag | DeepWiki'
 [5]: https://jackwhitworth.com/blog/how-to-run-pygame-in-the-browser/?utm_source=chatgpt.com 'How to run Pygame in the browser — Jack Whitworth'
+
+
+
+## TODO
+- fix startup screen, exit button not needed
+- add player graphics, for example a bicycle with box
+- add scale for mobile devices
+- fix mobile landscape too wide display button orientation
+- improve greenhouse add/remove plants UI
+- and music or bicycle sound for movement
+- improve the completed order world map green colouring
+- improve close to house icon
+- add avatars for NPCs in conversations
+- improve sound effects, add more sounds
+- improve phone ux
+- merge phone ux to web apis, like phone camera, or orientation
+- add more plants, and make pictures more exact so people can learn plant names
+- load plant informatica from wikipedia
+- change plant delivery so that player would go in the house for placing the plants
