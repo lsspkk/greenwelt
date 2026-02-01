@@ -113,7 +113,8 @@ greenwelt/
 │   ├── dialogs/                # Full-screen dialog screens
 │   │   ├── start_dialog.py     # Game start / title screen
 │   │   ├── start_screen.py     # Game start / title screen
-│   │   ├── score_screen.py     # End game score display
+│   │   ├── map_score_dialog.py # Map score display
+│   │   ├── score_screen.py     # End game celebration and score display
 │   │   ├── abort_screen.py     # Quit confirmation
 │   │   ├── conversation.py     # NPC conversation dialogs
 │   │   └── phone.py            # Phone UI dialog

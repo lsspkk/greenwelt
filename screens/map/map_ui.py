@@ -7,6 +7,7 @@ from typing import Optional, Dict, List, Callable
 from screens.dialogs.phone import PhoneScreen
 from screens.dialogs.delivery_dialog import DeliveryDialog
 from screens.dialogs.greenhouse import GreenhouseScreen
+from screens.dialogs.map_score_dialog import MapScoreDialog
 from screens.map.order_manager import OrderManager
 from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
 from shared.shared_components import Order
@@ -70,6 +71,12 @@ class MapUI:
         self.delivery_dialog = DeliveryDialog(screen)
         self.delivery_dialog.on_order_completed = self._on_order_completed
         self.delivery_dialog.on_plants_delivered = self._on_plants_delivered
+
+        # Map score dialog (shown when map is completed)
+        self.map_score_dialog = MapScoreDialog(screen)
+
+        # Flag to check map completion after celebration
+        self.check_completion_pending = False
 
         # Greenhouse dialog
         self.greenhouse = GreenhouseScreen(screen)
@@ -200,6 +207,23 @@ class MapUI:
         if self.on_greenery_add is not None:
             self.on_greenery_add(order.customer_location)
 
+        # Set flag to check map completion after celebration closes
+        self.check_completion_pending = True
+
+    def _show_map_score_dialog(self):
+        """Show the map score dialog with completion stats."""
+        from shared.debug_log import debug
+
+        debug.info("Map completed! Showing score dialog.")
+
+        self.map_score_dialog.open(
+            orders_completed=self.order_manager.orders_completed_count,
+            plants_delivered=self.order_manager.plants_delivered_count,
+            total_score=self.order_manager.total_score,
+            completed_orders=self.order_manager.completed_orders,
+            map_name=""
+        )
+
     def _on_plants_delivered(self, delivered_amounts: Dict[str, int]):
         """
         Called after delivery to remove plants from player inventory.
@@ -251,6 +275,15 @@ class MapUI:
 
         self._draw_greenhouse_icon()
 
+        # If map score dialog is open, handle it (blocks other UI)
+        if self.map_score_dialog.visible:
+            self.map_score_dialog.update(dt)
+            self.map_score_dialog.draw(input_mgr)
+            action = self.map_score_dialog.handle_input(input_mgr)
+            if action == "map_score_closed":
+                return "map_complete"
+            return action
+
         # If greenhouse is open, handle it (blocks other UI)
         if self.greenhouse.visible:
             self.greenhouse.update(dt)
@@ -263,6 +296,16 @@ class MapUI:
             self.delivery_dialog.update(dt)
             self.delivery_dialog.draw()
             action = self.delivery_dialog.handle_input(input_mgr)
+
+            # Check if celebration just closed and we need to check map completion
+            if action == "celebration_closed":
+                if self.check_completion_pending:
+                    self.check_completion_pending = False
+                    if self.order_manager.check_completion():
+                        # Map is complete - show score dialog
+                        self._show_map_score_dialog()
+                        return None
+
             return action
 
         # If phone is open, handle it (blocks other UI)

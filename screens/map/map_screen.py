@@ -79,28 +79,43 @@ class MapScreen:
 
         self.is_initialized = True
 
-    def load_config(self, json_path: str):
-        """Load map configuration from JSON file"""
+    def load_config(self, json_path: str, difficulty: str = "medium"):
+        """
+        Load map configuration from JSON file.
+
+        Args:
+            json_path: Path to the JSON config file
+            difficulty: Difficulty level - "easy", "medium", or "hard"
+        """
         from shared.debug_log import debug
         try:
             with open(json_path, "r") as f:
                 self.map_config = json.load(f)
 
-            # Apply config to order manager
+            # Get difficulty-specific settings
+            difficulty_key = f"difficulty_{difficulty}"
+            difficulty_config = self.map_config.get(difficulty_key, {})
+
+            # Store current difficulty for order generation
+            self.current_difficulty = difficulty
+            self.difficulty_config = difficulty_config
+
+            # Apply config to order manager (use difficulty overrides if present)
             if self.order_manager is not None:
                 self.order_manager.set_config(
                     batch_size=self.map_config.get("batch_size", 3),
                     batch_delay=self.map_config.get("batch_delay", 10.0),
                     accept_time=self.map_config.get("accept_time", 15.0),
-                    orders_required=self.map_config.get("orders_required", 10),
+                    orders_required=difficulty_config.get("orders_required", self.map_config.get("orders_required", 10)),
                     plants_required=self.map_config.get("plants_required", 0),
                     active_order_limit=self.map_config.get("active_order_limit", 6),
-                    score_required=self.map_config.get("score_required", 0),
+                    score_required=difficulty_config.get("score_required", self.map_config.get("score_required", 0)),
                     points_per_plant=self.map_config.get("points_per_plant", 10),
                     full_order_bonus=self.map_config.get("full_order_bonus", 20)
                 )
 
-            debug.info(f"Loaded map config from {json_path}")
+            debug.info(f"Loaded map config from {json_path} (difficulty: {difficulty})")
+            debug.info(f"Difficulty settings: orders_required={difficulty_config.get('orders_required')}, score_required={difficulty_config.get('score_required')}")
         except Exception as e:
             debug.error(f"Failed to load map config: {e}")
 

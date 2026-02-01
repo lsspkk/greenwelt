@@ -8,6 +8,11 @@ class StartDialog:
     - Map icon: Start playing map1
     - Exit icon: Quit the game (desktop only)
     - Fullscreen icon: Toggle fullscreen
+
+    Also has difficulty selection buttons:
+    - Helppo (Easy)
+    - Tavis (Medium) - default
+    - Vaikea (Hard)
     """
 
     def __init__(self, screen: pygame.Surface):
@@ -18,6 +23,7 @@ class StartDialog:
         # Fonts
         self.title_font = pygame.font.Font(None, 120)
         self.subtitle_font = pygame.font.Font(None, 52)
+        self.difficulty_font = pygame.font.Font(None, 42)
 
         # Button size and spacing
         self.button_size = 120
@@ -48,13 +54,45 @@ class StartDialog:
             self.button_size
         )
 
+        # Difficulty button settings
+        self.diff_button_width = 160
+        self.diff_button_height = 60
+        self.diff_button_spacing = 40
+        diff_total_width = self.diff_button_width * 3 + self.diff_button_spacing * 2
+        diff_start_x = (self.screen_width - diff_total_width) // 2
+        diff_button_y = button_y + self.button_size + 80
+
+        # Difficulty button rectangles
+        self.easy_button_rect = pygame.Rect(
+            diff_start_x,
+            diff_button_y,
+            self.diff_button_width,
+            self.diff_button_height
+        )
+        self.medium_button_rect = pygame.Rect(
+            diff_start_x + self.diff_button_width + self.diff_button_spacing,
+            diff_button_y,
+            self.diff_button_width,
+            self.diff_button_height
+        )
+        self.hard_button_rect = pygame.Rect(
+            diff_start_x + (self.diff_button_width + self.diff_button_spacing) * 2,
+            diff_button_y,
+            self.diff_button_width,
+            self.diff_button_height
+        )
+
         # Colors
         self.bg_color = (25, 35, 45)
         self.button_color = (50, 70, 90)
         self.button_hover_color = (70, 100, 130)
+        self.button_selected_color = (80, 140, 100)
         self.icon_color = (200, 220, 240)
         self.title_color = (100, 180, 120)
         self.subtitle_color = (150, 150, 150)
+
+        # Difficulty state - default is medium
+        self.selected_difficulty = "medium"
 
         # Result state
         self.result = None  # "map", "exit", "fullscreen", or None
@@ -65,6 +103,18 @@ class StartDialog:
         Returns: "map", "exit", "fullscreen", or None
         """
         if input_mgr.clicked_this_frame:
+            # Difficulty buttons (just change selection, no action returned)
+            if input_mgr.clicked_in_rect(self.easy_button_rect):
+                self.selected_difficulty = "easy"
+                return None
+            if input_mgr.clicked_in_rect(self.medium_button_rect):
+                self.selected_difficulty = "medium"
+                return None
+            if input_mgr.clicked_in_rect(self.hard_button_rect):
+                self.selected_difficulty = "hard"
+                return None
+
+            # Main action buttons
             if input_mgr.clicked_in_rect(self.map_button_rect):
                 return "map"
             if input_mgr.clicked_in_rect(self.fullscreen_button_rect):
@@ -94,6 +144,9 @@ class StartDialog:
         self._draw_map_button(input_mgr)
         self._draw_fullscreen_button(input_mgr)
         self._draw_exit_button(input_mgr)
+
+        # Draw difficulty buttons
+        self._draw_difficulty_buttons(input_mgr)
 
     def _draw_map_button(self, input_mgr):
         """Draw the map/play button with a simple map icon"""
@@ -189,3 +242,35 @@ class StartDialog:
             (arrow_x - 15, cy - 8),
             (arrow_x - 15, cy + 8)
         ])
+
+    def _draw_difficulty_buttons(self, input_mgr):
+        """Draw the difficulty selection buttons"""
+        buttons = [
+            (self.easy_button_rect, "easy", "Helppo"),
+            (self.medium_button_rect, "medium", "Tavis"),
+            (self.hard_button_rect, "hard", "Vaikea"),
+        ]
+
+        for rect, difficulty_key, label in buttons:
+            is_selected = self.selected_difficulty == difficulty_key
+            is_hovered = input_mgr.is_point_in_rect(input_mgr.touch_pos, rect)
+
+            # Choose color based on state
+            if is_selected:
+                color = self.button_selected_color
+            elif is_hovered:
+                color = self.button_hover_color
+            else:
+                color = self.button_color
+
+            # Button background
+            pygame.draw.rect(self.screen, color, rect, border_radius=12)
+
+            # Border - thicker if selected
+            border_width = 4 if is_selected else 2
+            pygame.draw.rect(self.screen, self.icon_color, rect, border_width, border_radius=12)
+
+            # Text label
+            text_surf = self.difficulty_font.render(label, True, self.icon_color)
+            text_rect = text_surf.get_rect(center=rect.center)
+            self.screen.blit(text_surf, text_rect)

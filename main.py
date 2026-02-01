@@ -4,6 +4,7 @@ import pygame
 import sys
 
 from screens.dialogs.start_dialog import StartDialog
+from screens.dialogs.score_screen import ScoreScreen
 from screens.map import MapScreen
 from screens.map.map_ui import MapUI
 from screens.map.order_manager import OrderManager
@@ -11,6 +12,7 @@ from shared.debug_overlay import DebugOverlay
 from shared.debug_log import debug
 from shared.input_manager import InputManager
 from shared.audio_manager import AudioManager
+from shared.game_score import game_score
 
 # Add this for browser JS interop (Pyodide/pygbag)
 try:
@@ -55,12 +57,18 @@ async def main():
     debug.info(f"Pygame version: {pygame.version.ver}")
     debug.info(f"Screen size: {screen.get_size()}")
 
-    # Game state: "start" or "map"
+    # Game state: "start", "map", or "end_score"
     game_state = "start"
     start_dialog = StartDialog(screen)
+    score_screen = ScoreScreen(screen)
     current_map = None
     map_ui = None
     map_overlay_action = None
+
+    # Map tracking
+    current_map_number = 1
+    max_maps = 2
+    difficulty = "medium"
 
     # Game state
     running = True
@@ -84,10 +92,12 @@ async def main():
             if action == "map":
                 # Play start sound
                 audio.play("alkaa-nyt")
-                # Initialize map screen
+                # Initialize map screen with selected difficulty
+                difficulty = start_dialog.selected_difficulty
+                current_map_number = 1
                 current_map = MapScreen(screen, "world")
                 current_map.initialize()
-                current_map.load_config("data/map1_config.json")
+                current_map.load_config("data/map1_config.json", difficulty=difficulty)
                 current_map.load_map_image("assets/map1.png")
                 current_map.load_roads("data/map1_roads.json")
                 current_map.load_locations("data/map1_locations.json")
@@ -106,6 +116,9 @@ async def main():
                 map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
                 map_ui.get_player_position = current_map.get_player_position
 
+                # Reset game score for new game
+                game_score.reset()
+
                 game_state = "map"
                 debug.info("Map screen initialized")
             elif action == "exit":
@@ -115,9 +128,29 @@ async def main():
                     toggle_fullscreen_browser()
                 else:
                     toggle_fullscreen_desktop()
+                # After fullscreen toggle, the display surface is recreated.
+                # Update all screen references to avoid segfault.
+                screen = pygame.display.get_surface()
+                start_dialog.screen = screen
+                score_screen.screen = screen
+                debug_overlay.screen = screen
                 debug.info("Fullscreen toggled")
 
             start_dialog.draw(input_mgr)
+            pygame.display.flip()
+            await asyncio.sleep(0)
+            continue
+
+        # Handle end score screen
+        if game_state == "end_score":
+            score_screen.update(dt)
+            score_screen.draw(input_mgr)
+            action = score_screen.handle_input(input_mgr)
+            if action == "score_closed":
+                # Return to start screen
+                game_state = "start"
+                debug.info("Returned to start screen")
+
             pygame.display.flip()
             await asyncio.sleep(0)
             continue
@@ -127,8 +160,8 @@ async def main():
         if debug.overlay_visible:
             if debug_overlay.draw_overlay(input_mgr):
                 debug.overlay_visible = False
-        elif map_overlay_action is None and not map_ui.greenhouse.visible:
-            # Normal game input (only when overlay closed and greenhouse not open)
+        elif map_overlay_action is None and not map_ui.greenhouse.visible and not map_ui.delivery_dialog.visible and not map_ui.map_score_dialog.visible:
+            # Normal game input (only when overlay closed and no dialogs open)
             if input_mgr.clicked_this_frame:
                 mouse_x, mouse_y = input_mgr.click_pos
                 # Convert screen to world coordinates using camera position and zoom
@@ -177,6 +210,52 @@ async def main():
             elif map_action == "phone_closed":
                 debug.info("Phone closed")
                 map_overlay_action = None
+            elif map_action == "map_complete":
+                debug.info(f"Map {current_map_number} completed!")
+
+                # Record map scores (game_score reads all data from order_manager)
+                game_score.add_completed_map(current_map_number, current_map.order_manager)
+
+                # Log summary
+                debug.info(game_score.get_map_summary(current_map_number))
+                debug.info(f"Total game score so far: {game_score.get_total_score()}")
+
+                if current_map_number < max_maps:
+                    # Load next map
+                    current_map_number += 1
+                    debug.info(f"Loading map {current_map_number}")
+
+                    current_map = MapScreen(screen, "world")
+                    current_map.initialize()
+                    current_map.load_config(f"data/map{current_map_number}_config.json", difficulty=difficulty)
+                    current_map.load_map_image(f"assets/map{current_map_number}.png")
+                    current_map.load_roads(f"data/map{current_map_number}_roads.json")
+                    current_map.load_locations(f"data/map{current_map_number}_locations.json")
+                    current_map.load_orders(f"data/map{current_map_number}_orders.json")
+                    current_map.initialize_greenery()
+                    current_map.initialize_greenhouse_inventory()
+                    current_map.initialize_start_position()
+
+                    # Create new map UI
+                    map_ui = MapUI(screen, current_map.order_manager)
+                    map_ui.on_greenery_add = current_map.add_greenery_at_delivery
+                    map_ui.set_greenhouse_system(current_map.greenhouse_inventory_system)
+                    map_ui.set_greenhouse_location(current_map.get_greenhouse_location())
+                    map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
+                    map_ui.get_player_position = current_map.get_player_position
+
+                    target = None
+                    debug.info(f"Map {current_map_number} initialized")
+                else:
+                    # All maps complete - show end game score screen
+                    debug.info("All maps complete! Showing end game score.")
+                    score_screen.open(
+                        total_orders=game_score.get_total_orders(),
+                        total_plants=game_score.get_total_plants(),
+                        total_score=game_score.get_total_score(),
+                        plant_counts=game_score.get_plant_counts()
+                    )
+                    game_state = "end_score"
 
         # Draw debug icon last so it's always on top
         if debug_overlay.draw_icon(input_mgr):

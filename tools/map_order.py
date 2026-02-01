@@ -939,6 +939,25 @@ class MapOrderApp:
         
         # Roll all emails button
         ttk.Button(toolbar, text="Arvo kaikki emailit", command=self.roll_all_emails).pack(side=tk.LEFT, padx=8, ipadx=BUTTON_PADDING, ipady=BUTTON_PADDING)
+
+        # Separator
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=15)
+
+        # Order generation controls
+        ttk.Label(toolbar, text="Määrä max:", font=FONT_SMALL).pack(side=tk.LEFT)
+        self.roll_amount_var = tk.StringVar(value="3")
+        roll_amount_spin = ttk.Spinbox(toolbar, from_=1, to=10, width=4,
+                                        textvariable=self.roll_amount_var, font=FONT_SMALL)
+        roll_amount_spin.pack(side=tk.LEFT, padx=4)
+
+        ttk.Label(toolbar, text="Kasveja max:", font=FONT_SMALL).pack(side=tk.LEFT, padx=(8, 0))
+        self.roll_plants_var = tk.StringVar(value="3")
+        roll_plants_spin = ttk.Spinbox(toolbar, from_=1, to=7, width=4,
+                                        textvariable=self.roll_plants_var, font=FONT_SMALL)
+        roll_plants_spin.pack(side=tk.LEFT, padx=4)
+
+        ttk.Button(toolbar, text="Roll", command=self.roll_orders_for_all_locations).pack(
+            side=tk.LEFT, padx=8, ipadx=BUTTON_PADDING, ipady=BUTTON_PADDING)
         
         # Status label
         self.status_var = tk.StringVar(value="Valitse kartta")
@@ -1108,11 +1127,20 @@ class MapOrderApp:
         ttk.Button(btn_row, text="Muokkaa tilauksia", 
             command=lambda idx=index: self.edit_location_orders_by_index(idx)).pack(side=tk.LEFT, padx=4)
         
-        tk.Button(btn_row, text="Arvo email", 
+        tk.Button(btn_row, text="Arvo email",
             command=lambda idx=index: self.roll_email_for_location(idx),
             bg="#e6f3ff",
             cursor="hand2",
             font=FONT_SMALL).pack(side=tk.LEFT, padx=4)
+
+        # Roll order button (only for non-player locations)
+        if name != "Kasvikauppa":
+            tk.Button(btn_row, text="R",
+                command=lambda idx=index: self.roll_order_for_location(idx),
+                bg="#ffe6cc",
+                cursor="hand2",
+                font=FONT_SMALL,
+                width=2).pack(side=tk.LEFT, padx=4)
     
     def roll_email_for_location(self, index):
         """Roll a new unique email for a specific location."""
@@ -1155,10 +1183,134 @@ class MapOrderApp:
         
         logger.info(f"Rolled emails for {count} locations")
         self.status_var.set(f"Arvottu {count} sähköpostia")
-        
+
         self.update_location_list()
         self.update_summary()
-    
+
+    def get_shuffled_plant_list(self):
+        """Get a shuffled list of all available plants."""
+        plants = self.plant_data.plants.copy()
+        random.shuffle(plants)
+        return plants
+
+    def generate_random_order(self, shuffled_plants, plant_index):
+        """
+        Generate a random order using the shuffled plant list.
+        Returns (order, new_plant_index) tuple.
+        """
+        max_amount = 1
+        max_plants = 1
+
+        try:
+            max_amount = int(self.roll_amount_var.get())
+            max_amount = max(1, min(10, max_amount))
+        except ValueError:
+            max_amount = 3
+
+        try:
+            max_plants = int(self.roll_plants_var.get())
+            max_plants = max(1, min(7, max_plants))
+        except ValueError:
+            max_plants = 3
+
+        # Roll how many different plants this order has
+        num_plants = random.randint(1, max_plants)
+
+        order = {
+            'send_time': random.randint(1, 9),
+            'plants': []
+        }
+
+        current_index = plant_index
+
+        for _ in range(num_plants):
+            # If we've used all plants, reshuffle
+            if current_index >= len(shuffled_plants):
+                random.shuffle(shuffled_plants)
+                current_index = 0
+
+            plant = shuffled_plants[current_index]
+            current_index += 1
+
+            # Roll amount for this plant
+            amount = random.randint(1, max_amount)
+
+            plant_entry = {
+                'plant_filename': plant.get('filename'),
+                'plant_name_fi': plant.get('fi'),
+                'plant_name_en': plant.get('en'),
+                'amount': amount
+            }
+            order['plants'].append(plant_entry)
+
+        return order, current_index
+
+    def roll_orders_for_all_locations(self):
+        """Roll one random order for all locations except Kasvikauppa."""
+        if not self.map_data:
+            messagebox.showwarning("Varoitus", "Lataa kartta ensin")
+            return
+
+        if not self.plant_data.plants:
+            messagebox.showwarning("Varoitus", "Ei kasveja ladattu")
+            return
+
+        shuffled_plants = self.get_shuffled_plant_list()
+        plant_index = 0
+        count = 0
+
+        for location in self.map_data.locations:
+            location_name = location.get('name')
+
+            # Skip player home
+            if location_name == "Kasvikauppa":
+                continue
+
+            order, plant_index = self.generate_random_order(shuffled_plants, plant_index)
+
+            # Add order to location
+            if location_name not in self.map_data.orders:
+                self.map_data.orders[location_name] = []
+            self.map_data.orders[location_name].append(order)
+            count += 1
+
+        logger.info(f"Rolled orders for {count} locations")
+        self.status_var.set(f"Arvottu {count} tilausta")
+
+        self.update_location_list()
+        self.update_summary()
+
+    def roll_order_for_location(self, index):
+        """Roll one random order for a specific location."""
+        if not self.map_data:
+            return
+
+        if not self.plant_data.plants:
+            messagebox.showwarning("Varoitus", "Ei kasveja ladattu")
+            return
+
+        if 0 <= index < len(self.map_data.locations):
+            location = self.map_data.locations[index]
+            location_name = location.get('name')
+
+            # Skip player home
+            if location_name == "Kasvikauppa":
+                return
+
+            shuffled_plants = self.get_shuffled_plant_list()
+            order, _ = self.generate_random_order(shuffled_plants, 0)
+
+            # Add order to location
+            if location_name not in self.map_data.orders:
+                self.map_data.orders[location_name] = []
+            self.map_data.orders[location_name].append(order)
+
+            logger.info(f"Rolled order for {location_name}")
+            self.status_var.set(f"Arvottu tilaus: {location_name}")
+
+            self.update_location_list()
+            self.update_summary()
+
     def edit_location_orders_by_index(self, index):
         """Open dialog to edit orders for location at given index."""
         if not self.map_data:

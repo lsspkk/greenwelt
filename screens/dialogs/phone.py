@@ -478,7 +478,7 @@ class PhoneScreen:
 
         # Customer name
         name_surf = self.font.render(
-            order.customer_location, True, self.text_color)
+            order.customer_email, True, self.text_color)
         self.screen.blit(name_surf, (card_rect.x + 12, card_rect.y + 10))
 
         # Plant count
