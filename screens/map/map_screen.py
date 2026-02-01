@@ -8,7 +8,7 @@ from screens.map.order_manager import OrderManager, OrderSystem
 from screens.map.greenery_system import GreenerySystem
 from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
 from shared.audio_manager import AudioManager
-from shared.shared_components import Position, Velocity, DotRenderable
+from shared.shared_components import Position, Velocity, DotRenderable, FaceRenderable, MaskState
 from .components import MapBackground, RoadLayer, PlayerOnMap, MapMarker, Camera, GreeneryLayer
 from .road_collision_system import RoadCollisionSystem
 from .map_render_system import MapRenderSystem

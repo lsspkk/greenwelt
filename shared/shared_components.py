@@ -25,6 +25,22 @@ class DotRenderable:
     color: tuple = (200, 240, 200)
 
 
+class MaskState(Enum):
+    """Mask states for player face rendering"""
+    NONE = "none"              # No mask, default state
+    CARRYING = "carrying"      # Carrying plants - green leaf pattern
+    GREENHOUSE = "greenhouse"  # Near greenhouse - wavy lines pattern
+    CELEBRATING = "celebrating"  # Order delivered - star pattern
+
+
+@dataclass
+class FaceRenderable:
+    """Renders entity as a happy face with plant-themed masks"""
+    radius: int = 30
+    face_color: tuple = (255, 210, 80)  # Yellow
+    mask_state: MaskState = MaskState.NONE
+
+
 @dataclass
 class RectangleRenderable:
     """Renders entity as a rectangle"""

@@ -2,6 +2,7 @@
 
 import random
 import pygame
+import esper
 from typing import Optional, Dict, List, Callable
 
 from screens.dialogs.phone import PhoneScreen
@@ -11,7 +12,7 @@ from screens.dialogs.map_score_dialog import MapScoreDialog
 from screens.map.order_manager import OrderManager
 from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
 from shared.audio_manager import AudioManager
-from shared.shared_components import Order
+from shared.shared_components import Order, FaceRenderable, MaskState
 
 
 class MapUI:
@@ -111,6 +112,9 @@ class MapUI:
 
         # Callback to get current player position (set by main.py)
         self.get_player_position: Optional[Callable] = None
+
+        # Current mask state for portrait
+        self.current_mask_state: MaskState = MaskState.NONE
 
     def set_player_portrait(self, image: pygame.Surface):
         """Set the player portrait from a captured selfie."""
@@ -272,6 +276,9 @@ class MapUI:
         """
         action = None
 
+        # Update player mask state based on current game conditions
+        self.update_player_mask_state(map_screen.player_entity)
+
         nearby = map_screen.get_nearby_location()
         self.current_nearby_location = nearby
         if nearby:
@@ -388,6 +395,52 @@ class MapUI:
             is_inside_radius
         )
 
+    def update_player_mask_state(self, player_entity):
+        """
+        Update the portrait mask state based on current game conditions.
+
+        Priority order (highest to lowest):
+        1. celebrating - if delivery dialog is celebrating
+        2. near_greenhouse - if within greenhouse_pick_radius
+        3. carrying - if carrying any plants
+        4. none - no special state
+        """
+        # Determine new mask state based on priority
+        new_state = MaskState.NONE
+
+        # Check celebration (highest priority - temporary state)
+        if self.delivery_dialog.visible and self.delivery_dialog.celebrating:
+            new_state = MaskState.CELEBRATING
+        # Check if near greenhouse (medium priority - location-based)
+        elif self._is_player_near_greenhouse():
+            new_state = MaskState.GREENHOUSE
+        # Check if carrying plants (default priority - inventory-based)
+        elif self.get_inventory_count() > 0:
+            new_state = MaskState.CARRYING
+
+        # Update the current mask state
+        self.current_mask_state = new_state
+
+    def _is_player_near_greenhouse(self) -> bool:
+        """Check if player is within greenhouse pick radius."""
+        if self.greenhouse_location is None or self.get_player_position is None:
+            return False
+
+        player_pos = self.get_player_position()
+        if player_pos is None:
+            return False
+
+        player_x, player_y = player_pos
+        greenhouse_x = self.greenhouse_location.get("x", 0)
+        greenhouse_y = self.greenhouse_location.get("y", 0)
+
+        # Calculate distance
+        dx = player_x - greenhouse_x
+        dy = player_y - greenhouse_y
+        distance = (dx * dx + dy * dy) ** 0.5
+
+        return distance <= self.greenhouse_pick_radius
+
     def _draw_player_portrait(self):
         """Draw player portrait in top left corner."""
         # Background circle with border
@@ -411,8 +464,8 @@ class MapUI:
             # Draw circular border on top to create rounded effect
             pygame.draw.circle(self.screen, border_color, center, 36, 3)
         else:
-            # Draw happy face emoji when no portrait
-            self._draw_happy_face(center[0], center[1])
+            # Draw happy face emoji when no portrait with mask
+            self._draw_happy_face(center[0], center[1], self.current_mask_state)
 
     def _draw_location_indicator(self, nearby):
         """Draw the nearby location info box in bottom right"""
@@ -530,8 +583,10 @@ class MapUI:
         text_rect = badge_text.get_rect(center=(badge_x, badge_y))
         self.screen.blit(badge_text, text_rect)
 
-    def _draw_happy_face(self, cx: int, cy: int):
-        """Draw a simple happy face emoji as default player portrait."""
+    def _draw_happy_face(self, cx: int, cy: int, mask_state: MaskState = MaskState.NONE):
+        """Draw a simple happy face emoji as default player portrait with optional mask."""
+        import math
+
         # Face color (warm yellow)
         face_color = (255, 210, 80)
 
@@ -558,6 +613,58 @@ class MapUI:
         # Rosy cheeks
         pygame.draw.circle(self.screen, (255, 160, 120), (cx - 18, cy + 5), 6)
         pygame.draw.circle(self.screen, (255, 160, 120), (cx + 18, cy + 5), 6)
+
+        # Draw mask pattern based on state
+        if mask_state == MaskState.CARRYING:
+            # Green leaf circles pattern
+            leaf_color_1 = (80, 160, 100)
+            leaf_color_2 = (100, 180, 120)
+            leaf_color_3 = (70, 150, 90)
+
+            pygame.draw.circle(self.screen, leaf_color_1, (cx - 10, cy + 8), 3)
+            pygame.draw.circle(self.screen, leaf_color_2, (cx + 5, cy + 10), 3)
+            pygame.draw.circle(self.screen, leaf_color_3, (cx - 5, cy + 15), 3)
+            pygame.draw.circle(self.screen, leaf_color_1, (cx + 10, cy + 12), 3)
+
+        elif mask_state == MaskState.GREENHOUSE:
+            # Vertical wavy lines pattern
+            line_color = (120, 200, 140)
+
+            for x_offset in [-8, 0, 8]:
+                points = []
+                for y in range(-20, 21, 5):
+                    wave_x = cx + x_offset + int(2 * math.sin(y / 5))
+                    wave_y = cy + y
+                    points.append((wave_x, wave_y))
+                if len(points) > 1:
+                    pygame.draw.lines(self.screen, line_color, False, points, 1)
+
+        elif mask_state == MaskState.CELEBRATING:
+            # Golden stars pattern
+            star_color = (255, 220, 100)
+
+            # 4 small stars around the face
+            star_positions = [
+                (cx - 18, cy - 18),
+                (cx + 18, cy - 18),
+                (cx - 18, cy + 18),
+                (cx + 18, cy + 18)
+            ]
+
+            for star_x, star_y in star_positions:
+                # Draw simple 4-pointed star
+                size = 4
+                points = [
+                    (star_x, star_y - size),
+                    (star_x - 2, star_y - 2),
+                    (star_x - size, star_y),
+                    (star_x - 2, star_y + 2),
+                    (star_x, star_y + size),
+                    (star_x + 2, star_y + 2),
+                    (star_x + size, star_y),
+                    (star_x + 2, star_y - 2)
+                ]
+                pygame.draw.polygon(self.screen, star_color, points)
 
     def _draw_door_icon(self, rect: pygame.Rect, enabled: bool = True):
         """Draw a door icon for the delivery button."""
