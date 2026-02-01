@@ -76,16 +76,27 @@ Pygbag uses a default HTML template from its CDN that doesn't include DOCTYPE. R
 - Works reliably every time
 - Can be extended with other post-processing steps if needed
 
+## Additional Fixes: Audio System Error Handling
+
+Added comprehensive error handling to `main.py` for audio initialization:
+- Wrapped `audio.initialize()` and `audio.load_sounds()` in try-except
+- If audio fails, game continues without audio (graceful degradation)
+- **All errors are printed to browser console** (F12 > Console tab)
+- Full Python traceback is printed for debugging
+
+This allows us to see what's actually failing when the game shows a black screen.
+
 ## Testing Checklist
 
-- [x] Run `uv run python build.py`
+- [x] Run `uv run python build.py` - DOCTYPE added, error handling added
 - [x] Check that `docs/index.html` starts with `<!DOCTYPE html>`
-- [ ] Test locally: `uv run python build.py --serve`
-- [ ] Open http://localhost:8000 in browser
-- [ ] Check console (F12) - "Quirks Mode" warning should be gone
-- [ ] Verify game renders correctly (not black screen)
-- [ ] Push to GitHub Pages and test deployment
-- [ ] Test on multiple browsers (Chrome, Firefox, Safari, Mobile)
+- [ ] Test locally: `uv run python build.py --serve` to verify it still works
+- [ ] Deploy to GitHub Pages
+- [ ] Open https://your-username.github.io/greenwelt/
+- [ ] Press F12 to open Developer Tools > Console tab
+- [ ] Look for error messages starting with "ERROR:" or "AUDIO ERROR:"
+- [ ] If you see errors, copy them and share them - that's what was causing the black screen
+- [ ] If no errors and game loads with "Aloita kasvipeli" button, you can click it to play
 
 ## Local Testing
 

@@ -23,8 +23,27 @@ class StartDialog:
 
         # Fonts
         self.title_font = pygame.font.Font(None, 120)
-        self.subtitle_font = pygame.font.Font(None, 52)
+        self.subtitle_font = pygame.font.Font(None, 36)
         self.difficulty_font = pygame.font.Font(None, 42)
+        
+        # Poems and signatures
+        self.poems = [
+            [
+                "Vihreä toivo kaupungin kaduilla kulkee,",
+                "kasvi kerrallaan maailma paranee.",
+                "Jokainen lehti on lupaus tulevasta,",
+                "jossa luonto ja betoni löytävät tasapainon,",
+                "ja elämä kukoistaa jälleen."
+            ]
+        ]
+        
+        self.signatures = [
+            "Sonnet 4.5"
+        ]
+        
+        # Select first poem
+        self.current_poem = self.poems[0]
+        self.current_signature = self.signatures[0]
 
         # Button size and spacing
         self.button_size = 120
@@ -152,11 +171,19 @@ class StartDialog:
         title_rect = title_surf.get_rect(center=(self.screen_width // 2, 200))
         self.screen.blit(title_surf, title_rect)
 
-        # Subtitle
-        subtitle_text = "Paranna kaupunkeja kasvien voimalla!"
-        subtitle_surf = self.subtitle_font.render(subtitle_text, True, self.subtitle_color)
-        subtitle_rect = subtitle_surf.get_rect(center=(self.screen_width // 2, 280))
-        self.screen.blit(subtitle_surf, subtitle_rect)
+        # Poem (multi-line subtitle)
+        poem_start_y = 280
+        line_spacing = 40
+        for i, line in enumerate(self.current_poem):
+            line_surf = self.subtitle_font.render(line, True, self.subtitle_color)
+            line_rect = line_surf.get_rect(center=(self.screen_width // 2, poem_start_y + i * line_spacing))
+            self.screen.blit(line_surf, line_rect)
+        
+        # Signature
+        signature_y = poem_start_y + len(self.current_poem) * line_spacing + 20
+        signature_surf = pygame.font.Font(None, 32).render(f"— {self.current_signature}", True, (120, 120, 120))
+        signature_rect = signature_surf.get_rect(center=(self.screen_width // 2, signature_y))
+        self.screen.blit(signature_surf, signature_rect)
 
         # Draw audio toggle button
         self._draw_audio_toggle_button(input_mgr)

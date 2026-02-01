@@ -31,11 +31,18 @@ async def main(start_map=1):
     clock = pygame.time.Clock()
     pygame.display.set_caption("Plant Courier")
 
-    # Initialize audio
+    # Initialize audio with error handling
     audio = AudioManager()
-    audio.initialize()
-    audio.load_sounds()
-    debug.info(f"Audio: {audio.get_status()}")
+    try:
+        audio.initialize()
+        audio.load_sounds()
+        debug.info(f"Audio: {audio.get_status()}")
+    except Exception as audio_err:
+        print(f"ERROR: Audio initialization failed: {audio_err}", flush=True)
+        import traceback
+        traceback.print_exc()
+        debug.error(f"Audio failed: {audio_err}")
+        # Continue without audio - AudioManager handles disabled state gracefully
 
     # Exit button (top right corner)
     exit_font = pygame.font.Font(None, 36)
