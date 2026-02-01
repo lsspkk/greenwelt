@@ -15,10 +15,11 @@ class StartDialog:
     - Vaikea (Hard)
     """
 
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface, audio_manager=None):
         self.screen = screen
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
+        self.audio_manager = audio_manager
 
         # Fonts
         self.title_font = pygame.font.Font(None, 120)
@@ -29,10 +30,10 @@ class StartDialog:
         self.button_size = 120
         self.button_spacing = 60
 
-        # Calculate button positions (centered horizontally)
+        # Calculate button positions (centered horizontally, moved lower)
         total_width = self.button_size * 3 + self.button_spacing * 2
         start_x = (self.screen_width - total_width) // 2
-        button_y = self.screen_height // 2 + 50
+        button_y = self.screen_height // 2 + 220
 
         # Button rectangles
         self.map_button_rect = pygame.Rect(
@@ -54,13 +55,24 @@ class StartDialog:
             self.button_size
         )
 
-        # Difficulty button settings
+        # Difficulty button settings (above main buttons)
         self.diff_button_width = 160
         self.diff_button_height = 60
         self.diff_button_spacing = 40
         diff_total_width = self.diff_button_width * 3 + self.diff_button_spacing * 2
         diff_start_x = (self.screen_width - diff_total_width) // 2
-        diff_button_y = button_y + self.button_size + 80
+        diff_button_y = button_y - 120
+
+        # Audio toggle button settings (above difficulty buttons)
+        self.audio_button_width = 150
+        self.audio_button_height = 60
+        audio_button_x = (self.screen_width - self.audio_button_width) // 2
+        self.audio_button_rect = pygame.Rect(
+            audio_button_x,
+            diff_button_y - 100,
+            self.audio_button_width,
+            self.audio_button_height
+        )
 
         # Difficulty button rectangles
         self.easy_button_rect = pygame.Rect(
@@ -103,6 +115,12 @@ class StartDialog:
         Returns: "map", "exit", "fullscreen", or None
         """
         if input_mgr.clicked_this_frame:
+            # Audio toggle (above difficulty buttons)
+            if input_mgr.clicked_in_rect(self.audio_button_rect):
+                if self.audio_manager:
+                    self.audio_manager.toggle_sound()
+                return None
+
             # Difficulty buttons (just change selection, no action returned)
             if input_mgr.clicked_in_rect(self.easy_button_rect):
                 self.selected_difficulty = "easy"
@@ -140,13 +158,38 @@ class StartDialog:
         subtitle_rect = subtitle_surf.get_rect(center=(self.screen_width // 2, 280))
         self.screen.blit(subtitle_surf, subtitle_rect)
 
-        # Draw buttons
+        # Draw audio toggle button
+        self._draw_audio_toggle_button(input_mgr)
+
+        # Draw difficulty buttons
+        self._draw_difficulty_buttons(input_mgr)
+
+        # Draw main buttons
         self._draw_map_button(input_mgr)
         self._draw_fullscreen_button(input_mgr)
         self._draw_exit_button(input_mgr)
 
-        # Draw difficulty buttons
-        self._draw_difficulty_buttons(input_mgr)
+    def _draw_audio_toggle_button(self, input_mgr):
+        """Draw the audio toggle button"""
+        rect = self.audio_button_rect
+        is_hovered = input_mgr.is_point_in_rect(input_mgr.touch_pos, rect)
+        sound_enabled = self.audio_manager.sound_enabled if self.audio_manager else True
+
+        # Button background (green if on, red if off)
+        if sound_enabled:
+            color = (80, 140, 100) if is_hovered else (60, 120, 80)
+        else:
+            color = (140, 80, 80) if is_hovered else (120, 60, 60)
+
+        # Button background
+        pygame.draw.rect(self.screen, color, rect, border_radius=12)
+        pygame.draw.rect(self.screen, self.icon_color, rect, 3, border_radius=12)
+
+        # Text label
+        status_text = "Ääni: ON" if sound_enabled else "Ääni: OFF"
+        text_surf = pygame.font.Font(None, 40).render(status_text, True, self.icon_color)
+        text_rect = text_surf.get_rect(center=rect.center)
+        self.screen.blit(text_surf, text_rect)
 
     def _draw_map_button(self, input_mgr):
         """Draw the map/play button with a simple map icon"""

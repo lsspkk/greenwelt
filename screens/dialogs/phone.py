@@ -1,5 +1,6 @@
 import pygame
 from typing import Optional, List
+from shared.audio_manager import AudioManager
 from shared.shared_components import Order, OrderState
 from shared.debug_log import debug
 from screens.dialogs.phone_active_order import PhoneActiveOrderScreen
@@ -17,8 +18,9 @@ class PhoneScreen:
     Closed by clicking outside the device frame.
     """
 
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface, audio: AudioManager):
         self.screen = screen
+        self.audio = audio
         self.visible = False
         self.mode = "accepted"  # "incoming" or "accepted"
 
@@ -113,6 +115,7 @@ class PhoneScreen:
                     order_manager.accept_order(accepted_order)
                     debug.info(
                         f"Order accepted via visible screen: {accepted_order.order_id}")
+                self.audio.play('phonebutton')
                 return "order_accepted"
             if result == "back_to_orders":
                 # User clicked X - return to order list without accepting
@@ -134,9 +137,11 @@ class PhoneScreen:
 
             result = self.active_order_screen.handle_input(input_mgr)
             if result == "back_to_orders":
+                self.audio.play('phonebutton')
                 # Returned to order list
                 return None
             if result is not None:
+                self.audio.play('phonebutton')
                 return result
             # Active order screen is showing, don't process other inputs
             return None
@@ -154,12 +159,14 @@ class PhoneScreen:
             debug.info("Navigation button clicked")
             if self.on_nav_click:
                 self.on_nav_click()
+            self.audio.play('phonebutton')
             return "nav_clicked"
 
         if input_mgr.clicked_in_rect(self.camera_button_rect):
             debug.info("Camera button clicked")
             if self.on_camera_click:
                 self.on_camera_click()
+            self.audio.play('phonebutton')
             return "camera_clicked"
 
         # Check order card clicks (for accepted orders in "accepted" mode)
@@ -168,6 +175,7 @@ class PhoneScreen:
                 if input_mgr.clicked_in_rect(card_rect):
                     debug.info(f"Order card clicked: {order.order_id}")
                     self.active_order_screen.open(order)
+                    self.audio.play('phonebutton')
                     return "order_opened"
 
         # Check accept button clicks - opens visible order screen first
@@ -176,6 +184,7 @@ class PhoneScreen:
                 debug.info(
                     f"Accept button clicked for order {order.order_id} - opening details")
                 self.visible_order_screen.open(order)
+                self.audio.play('phonebutton')
                 return "order_details_opened"
 
         return None

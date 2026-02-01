@@ -2,8 +2,11 @@
 # Uses OGG files for cross-platform compatibility (including WASM/browser)
 
 import os
+import random
 import pygame
 from pathlib import Path
+
+import yaml
 
 
 def is_running_in_wasm():
@@ -94,14 +97,20 @@ class AudioManager:
             # Audio not available, skip loading
             return
 
-        audio_path = Path("assets/audio")
+        # load soundmap.yaml file from data
+        yaml_path = Path("data/soundmap.yaml")
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            self.soundmap = yaml.safe_load(f)
 
-        sound_files = [
-            "alkaa-nyt.ogg",
-        ]
+
+
+        sound_files = []
+        # each key in yaml has sounds field, that is a list of filenames
+        for sound_key, sound_info in self.soundmap.items():
+            sound_files.extend(sound_info.get("sounds", []))
 
         for filename in sound_files:
-            filepath = audio_path / filename
+            filepath = Path(filename)
             if filepath.exists():
                 name = filename.replace(".ogg", "")
                 try:
@@ -117,8 +126,21 @@ class AudioManager:
         if not self.sound_enabled:
             return
 
-        if sound_name in self.sounds:
-            self.sounds[sound_name].play()
+        # choose a random sound from the soundmap for this sound_name
+        if sound_name in self.soundmap:
+            options = self.soundmap[sound_name]
+            sound_files = options.get("sounds", [])
+            volume = options.get("volume", 1.0)
+            if sound_files:
+                chosen_file = random.choice(sound_files)
+                chosen_name = chosen_file.replace(".ogg", "")
+                if chosen_name in self.sounds:
+                    sound = self.sounds[chosen_name]
+                    sound.set_volume(volume)
+                    sound.play()
+                    return
+
+
 
     def play_music(self, filename: str, loop: bool = True):
         """Start background music"""

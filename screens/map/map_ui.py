@@ -10,16 +10,18 @@ from screens.dialogs.greenhouse import GreenhouseScreen
 from screens.dialogs.map_score_dialog import MapScoreDialog
 from screens.map.order_manager import OrderManager
 from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
+from shared.audio_manager import AudioManager
 from shared.shared_components import Order
 
 
 class MapUI:
     """Handles all UI elements specific to the map screen"""
 
-    def __init__(self, screen: pygame.Surface, order_manager: OrderManager):
+    def __init__(self, screen: pygame.Surface, order_manager: OrderManager, audio: AudioManager):
         self.screen = screen
         self.order_manager = order_manager
-        self.phone = PhoneScreen(screen)    # Phone screen overlay
+        self.audio = audio
+        self.phone = PhoneScreen(screen, audio)    # Phone screen overlay
         self.font = pygame.font.Font(None, 42)
         self.small_font = pygame.font.Font(None, 36)
         self.emoji_font = pygame.font.Font(None, 56)
@@ -223,6 +225,8 @@ class MapUI:
             completed_orders=self.order_manager.completed_orders,
             map_name=""
         )
+        self.audio.play("mapcompleted")
+
 
     def _on_plants_delivered(self, delivered_amounts: Dict[str, int]):
         """
@@ -334,7 +338,8 @@ class MapUI:
                         nearby["name"],
                         self.player_inventory,
                         self.order_manager.points_per_plant,
-                        self.order_manager.full_order_bonus
+                        self.order_manager.full_order_bonus,
+                        self.order_manager
                     )
         elif action == "open_greenhouse":
             self._open_greenhouse()
@@ -486,19 +491,14 @@ class MapUI:
 
             # Only allow opening delivery dialog if player can deliver something
             if can_deliver and input_mgr.clicked_in_rect(self.door_button_rect):
+                self.audio.play("orderdelivered")
                 return "open_delivery"
 
         # Bottom icon: Incoming orders (alert phone) - only if visible orders exist
-        # Position it below the door button if door is shown
         visible_count = self.order_manager.get_visible_count()
         if visible_count > 0:
-            # Adjust incoming phone position based on door button visibility
-            if show_door_button:
-                incoming_rect = pygame.Rect(32, 320, 84, 84)
-                incoming_border = incoming_rect.inflate(12, 12)
-            else:
-                incoming_rect = self.incoming_phone_rect
-                incoming_border = self.incoming_phone_border
+            incoming_rect = self.incoming_phone_rect
+            incoming_border = self.incoming_phone_border
 
             pygame.draw.rect(self.screen, bg_color,
                              incoming_border, border_radius=12)

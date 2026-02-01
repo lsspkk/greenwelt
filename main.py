@@ -1,4 +1,5 @@
 # Plant Courier - Main Entry Point
+import argparse
 import asyncio
 import pygame
 import sys
@@ -24,7 +25,7 @@ except ImportError:
 from shared.fullscreen import toggle_fullscreen_browser, toggle_fullscreen_desktop
 
 
-async def main():
+async def main(start_map=1):
     pygame.init()
     screen = pygame.display.set_mode((1920, 1080))
     clock = pygame.time.Clock()
@@ -59,14 +60,14 @@ async def main():
 
     # Game state: "start", "map", or "end_score"
     game_state = "start"
-    start_dialog = StartDialog(screen)
+    start_dialog = StartDialog(screen, audio)
     score_screen = ScoreScreen(screen)
     current_map = None
     map_ui = None
     map_overlay_action = None
 
     # Map tracking
-    current_map_number = 1
+    current_map_number = start_map
     max_maps = 2
     difficulty = "medium"
 
@@ -90,24 +91,22 @@ async def main():
         if game_state == "start":
             action = start_dialog.handle_event(input_mgr)
             if action == "map":
-                # Play start sound
-                audio.play("alkaa-nyt")
                 # Initialize map screen with selected difficulty
                 difficulty = start_dialog.selected_difficulty
-                current_map_number = 1
-                current_map = MapScreen(screen, "world")
+                current_map_number = start_map
+                current_map = MapScreen(screen, "world", audio)
                 current_map.initialize()
-                current_map.load_config("data/map1_config.json", difficulty=difficulty)
-                current_map.load_map_image("assets/map1.png")
-                current_map.load_roads("data/map1_roads.json")
-                current_map.load_locations("data/map1_locations.json")
-                current_map.load_orders("data/map1_orders.json")
+                current_map.load_config(f"data/map{current_map_number}_config.json", difficulty=difficulty)
+                current_map.load_map_image(f"assets/map{current_map_number}.png")
+                current_map.load_roads(f"data/map{current_map_number}_roads.json")
+                current_map.load_locations(f"data/map{current_map_number}_locations.json")
+                current_map.load_orders(f"data/map{current_map_number}_orders.json")
                 current_map.initialize_greenery()
                 current_map.initialize_greenhouse_inventory()
                 current_map.initialize_start_position()
 
                 # Create map UI and wire up systems
-                map_ui = MapUI(screen, current_map.order_manager)
+                map_ui = MapUI(screen, current_map.order_manager, audio)
                 map_ui.on_greenery_add = current_map.add_greenery_at_delivery
 
                 # Set up greenhouse system integration
@@ -118,6 +117,9 @@ async def main():
 
                 # Reset game score for new game
                 game_score.reset()
+
+                # Play start sound
+                audio.play("mapstart")
 
                 game_state = "map"
                 debug.info("Map screen initialized")
@@ -237,12 +239,13 @@ async def main():
                     current_map.initialize_start_position()
 
                     # Create new map UI
-                    map_ui = MapUI(screen, current_map.order_manager)
+                    map_ui = MapUI(screen, current_map.order_manager, audio)
                     map_ui.on_greenery_add = current_map.add_greenery_at_delivery
                     map_ui.set_greenhouse_system(current_map.greenhouse_inventory_system)
                     map_ui.set_greenhouse_location(current_map.get_greenhouse_location())
                     map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
                     map_ui.get_player_position = current_map.get_player_position
+                    audio.play("mapstart")
 
                     target = None
                     debug.info(f"Map {current_map_number} initialized")
@@ -276,4 +279,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--map', type=int, default=1, help='Starting map number')
+    args = parser.parse_args()
+    asyncio.run(main(start_map=args.map))

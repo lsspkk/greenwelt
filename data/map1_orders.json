@@ -2,7 +2,7 @@
   "Kasvikauppa": [],
   "Hiiritoimisto": [
     {
-      "order_id": "map1-order-01",
+      "order_id": "map1-order-1",
       "send_time": 5,
       "plants": [
         {
@@ -26,7 +26,7 @@
       ]
     },
     {
-      "order_id": "map1-order-02",
+      "order_id": "map1-order-2",
       "send_time": 5,
       "plants": [
         {
@@ -46,7 +46,7 @@
   ],
   "Ilves toimisto": [
     {
-      "order_id": "map1-order-03",
+      "order_id": "map1-order-3",
       "send_time": 5,
       "plants": [
         {
@@ -60,7 +60,7 @@
   ],
   "Siili toimisto": [
     {
-      "order_id": "map1-order-04",
+      "order_id": "map1-order-4",
       "send_time": 5,
       "plants": [
         {
@@ -84,7 +84,7 @@
       ]
     },
     {
-      "order_id": "map1-order-05",
+      "order_id": "map1-order-5",
       "send_time": 5,
       "plants": [
         {
@@ -108,7 +108,7 @@
       ]
     },
     {
-      "order_id": "map1-order-06",
+      "order_id": "map1-order-6",
       "send_time": 5,
       "plants": [
         {
@@ -132,7 +132,7 @@
       ]
     },
     {
-      "order_id": "map1-order-07",
+      "order_id": "map1-order-7",
       "send_time": 5,
       "plants": [
         {
@@ -158,7 +158,7 @@
   ],
   "Kettukonttori": [
     {
-      "order_id": "map1-order-08",
+      "order_id": "map1-order-8",
       "send_time": 5,
       "plants": [
         {
@@ -176,7 +176,7 @@
       ]
     },
     {
-      "order_id": "map1-order-09",
+      "order_id": "map1-order-9",
       "send_time": 5,
       "plants": [
         {

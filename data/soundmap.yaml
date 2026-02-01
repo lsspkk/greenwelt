@@ -1,0 +1,48 @@
+phonebutton:
+  sounds:
+  - assets/audio/klik1.ogg
+  - assets/audio/klik2.ogg
+  - assets/audio/klik3.ogg
+  - assets/audio/_pitched/klik1__pv005__v1.ogg
+  - assets/audio/_pitched/klik1__pv005__v2.ogg
+  - assets/audio/_pitched/klik1__pv005__v3.ogg
+  - assets/audio/_pitched/klik2__pv005__v1.ogg
+  - assets/audio/_pitched/klik2__pv005__v2.ogg
+  - assets/audio/_pitched/klik2__pv005__v3.ogg
+  - assets/audio/_pitched/klik3__pv005__v1.ogg
+  - assets/audio/_pitched/klik3__pv005__v2.ogg
+  - assets/audio/_pitched/klik3__pv005__v3.ogg
+  volume: 0.4
+  pitchvariance: 0.05
+
+ordervisiblealert:
+  sounds:
+  - assets/audio/pim.ogg
+  volume: 0.6
+
+mapmovement:
+  sounds:
+  - assets/audio/liike.ogg
+  - assets/audio/_pitched/liike__pv010__v1.ogg
+  - assets/audio/_pitched/liike__pv010__v2.ogg
+  - assets/audio/_pitched/liike__pv010__v3.ogg
+  volume: 0.2
+  pitchvariance: 0.1
+  continuous: true
+  stop-on-dialogs: true
+
+orderdelivered:
+  sounds:
+  - assets/audio/kiitos.ogg
+  - assets/audio/kiitos2.ogg
+  volume: 0.8
+
+mapstart:
+  sounds:
+  - assets/audio/alkaa-nyt.ogg
+  volume: 0.8
+
+mapcompleted:
+  sounds:
+  - assets/audio/jahuu.ogg
+  volume: 0.8

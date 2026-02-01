@@ -1,5 +1,6 @@
 # Order system - manages order lifecycle on the map screen
 
+from shared.audio_manager import AudioManager
 import esper
 import random
 from typing import List, Dict
@@ -16,7 +17,8 @@ class OrderManager:
     Orders don't need ECS - they have a fixed structure.
     """
 
-    def __init__(self):
+    def __init__(self, audio: AudioManager):
+        self.audio = audio
         # All orders loaded from JSON, keyed by location name
         self.all_orders: Dict[str, List[Order]] = {}
 
@@ -56,7 +58,7 @@ class OrderManager:
         # Text roller for generating order text
         self.text_roller = OrderTextRoller()
 
-    def load_orders(self, orders_data: Dict[str, List[dict]]):
+    def load_orders(self, orders_data: Dict[str, List[dict]], locations_data: List[dict] = None):
         """
         Load orders from JSON data.
 
@@ -72,13 +74,29 @@ class OrderManager:
                 }
             ]
         }
+
+        Args:
+            orders_data: Orders keyed by location name
+            locations_data: List of location dicts with name and email fields
         """
         self.all_orders = {}
         self.available_orders = []
 
+        # Build location name -> email lookup
+        email_lookup = {}
+        if locations_data is not None:
+            for loc in locations_data:
+                loc_name = loc.get("name", "")
+                loc_email = loc.get("email", "")
+                if loc_name:
+                    email_lookup[loc_name] = loc_email
+
         total_orders = 0
         for location_name, order_list in orders_data.items():
             self.all_orders[location_name] = []
+
+            # Look up email for this location
+            customer_email = email_lookup.get(location_name, "")
 
             for order_data in order_list:
                 plants = []
@@ -95,7 +113,7 @@ class OrderManager:
                 order = Order(
                     order_id=order_data.get("order_id", ""),
                     customer_location=location_name,
-                    customer_email=order_data.get("customer_email", ""),
+                    customer_email=customer_email,
                     plants=plants,
                     state=OrderState.AVAILABLE,
                     send_time=order_data.get("send_time", 0.0),
@@ -313,6 +331,10 @@ class OrderSystem(esper.Processor):
             order.countdown_to_visible -= dt
             if order.countdown_to_visible <= 0:
                 orders_to_make_visible.append(order)
+
+        if len(orders_to_make_visible) > 0:
+            # play alert sound for new visible orders
+            manager.audio.play("ordervisiblealert")
 
         for order in orders_to_make_visible:
             manager.move_to_visible(order)

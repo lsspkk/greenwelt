@@ -7,6 +7,7 @@ from typing import Optional, List, Dict
 from screens.map.order_manager import OrderManager, OrderSystem
 from screens.map.greenery_system import GreenerySystem
 from screens.map.greenhouse_inventory_system import GreenhouseInventorySystem
+from shared.audio_manager import AudioManager
 from shared.shared_components import Position, Velocity, DotRenderable
 from .components import MapBackground, RoadLayer, PlayerOnMap, MapMarker, Camera, GreeneryLayer
 from .road_collision_system import RoadCollisionSystem
@@ -16,7 +17,7 @@ from .map_render_system import MapRenderSystem
 class MapScreen:
     """Top-down world map screen"""
 
-    def __init__(self, screen: pygame.Surface, map_name: str = "default"):
+    def __init__(self, screen: pygame.Surface, map_name: str = "default", audio: AudioManager = None):
         self.screen = screen
         self.map_name = map_name
         self.world_name = f"map_{map_name}"
@@ -34,6 +35,7 @@ class MapScreen:
         self.greenery_system = None
         self.greenery_entity = None
         self.map_config = {}
+        self.audio = audio
 
         # Greenhouse inventory system - manages plant supply and growth
         self.greenhouse_inventory_system = None
@@ -72,7 +74,7 @@ class MapScreen:
         )
 
         # Create order manager
-        self.order_manager = OrderManager()
+        self.order_manager = OrderManager(self.audio)
 
         # Add order system to ECS
         esper.add_processor(OrderSystem(self.order_manager), priority=2)
@@ -125,7 +127,8 @@ class MapScreen:
         try:
             with open(json_path, "r") as f:
                 orders_data = json.load(f)
-            self.order_manager.load_orders(orders_data)
+            # Pass locations data so order manager can look up emails
+            self.order_manager.load_orders(orders_data, self.locations)
             debug.info(f"Loaded orders from {json_path}")
         except Exception as e:
             debug.error(f"Failed to load orders: {e}")

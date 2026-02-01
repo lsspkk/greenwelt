@@ -4,132 +4,151 @@
     "x": 676,
     "y": 928,
     "type": "shop",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "aurinkolapsi@geemaili.com"
   },
   {
     "name": "Hiiritoimisto",
     "x": 1201,
     "y": 234,
     "type": "office",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "unisilma@redditti.net"
   },
   {
     "name": "Ilves toimisto",
     "x": 347,
     "y": 539,
     "type": "office",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "aurinkopallo@juutuubi.com"
   },
   {
     "name": "Siili toimisto",
     "x": 417,
     "y": 622,
     "type": "office",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "satumetsa@linkkarinkkari.org"
   },
   {
     "name": "Kettukonttori",
     "x": 1058,
     "y": 836,
     "type": "office",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "taivaanpoika@juutuubi.com"
   },
   {
     "name": "Tokio",
     "x": 387,
     "y": 780,
     "type": "restaurant",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "hiljainenkuu@geemaili.com"
   },
   {
-    "name": "J\u00e4\u00e4tel\u00f6 Bar",
+    "name": "Jäätelö Bar",
     "x": 213,
     "y": 279,
     "type": "restaurant",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "taikakivi@tikkaritokkari.app"
   },
   {
     "name": "Soppala",
     "x": 909,
     "y": 481,
     "type": "restaurant",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "metsamieli@instagraami.io"
   },
   {
     "name": "Puistokahvila",
     "x": 673,
     "y": 668,
     "type": "restaurant",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "satupolku@spottiwai.com"
   },
   {
     "name": "SP Pankki",
     "x": 571,
     "y": 329,
     "type": "office",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "pilvilinna@tikkaritokkari.app"
   },
   {
     "name": "Aamu",
     "x": 656,
     "y": 182,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "satumetsa@openauts.ai"
   },
   {
     "name": "Pinja",
     "x": 637,
     "y": 313,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "satukipina@juutuubi.com"
   },
   {
     "name": "Minttu",
     "x": 610,
     "y": 417,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "ilveskatse@instagraami.io"
   },
   {
     "name": "Oona",
     "x": 615,
     "y": 368,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "unisilma@juutuubi.com"
   },
   {
     "name": "Eemil",
     "x": 648,
     "y": 246,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "hiljainenpolku@juutuubi.com"
   },
   {
     "name": "Edwin",
     "x": 977,
     "y": 183,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "tahdenkipina@tikkaritokkari.app"
   },
   {
     "name": "Sushi",
     "x": 901,
     "y": 954,
     "type": "restaurant",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "sudenjalki@redditti.net"
   },
   {
     "name": "Eemeli",
     "x": 1115,
     "y": 686,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "taikahattu@spottiwai.com"
   },
   {
     "name": "Vilma",
     "x": 1040,
     "y": 567,
     "type": "house",
-    "tolerance": 50
+    "tolerance": 50,
+    "email": "unipolku@openauts.ai"
   }
 ]

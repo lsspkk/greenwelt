@@ -104,6 +104,9 @@ class DeliveryDialog:
         # Callback to remove plants from player inventory after delivery
         self.on_plants_delivered: Optional[Callable] = None
 
+        # Order manager reference for showing progress (set when opened)
+        self.order_manager = None
+
         # Celebration animation state
         self.celebrating = False
         self.celebration_timer = 0.0
@@ -116,7 +119,8 @@ class DeliveryDialog:
     def open(self, order: Order, location_name: str,
              player_inventory: Dict[str, int],
              points_per_plant: int = 10,
-             full_order_bonus: int = 20):
+             full_order_bonus: int = 20,
+             order_manager=None):
         """
         Open the delivery dialog for an order.
 
@@ -126,12 +130,14 @@ class DeliveryDialog:
             player_inventory: Current player inventory (plant filename -> count)
             points_per_plant: Points awarded per plant delivered
             full_order_bonus: Bonus points for completing full order
+            order_manager: OrderManager reference for showing progress
         """
         self.order = order
         self.location_name = location_name
         self.player_inventory = player_inventory
         self.points_per_plant = points_per_plant
         self.full_order_bonus = full_order_bonus
+        self.order_manager = order_manager
         self.scroll_offset = 0
         self.visible = True
         self.celebrating = False
@@ -726,8 +732,10 @@ class DeliveryDialog:
             medium_font = pygame.font.Font(None, 72)
 
             # Semi-transparent background for text readability
-            text_bg_rect = pygame.Rect(center_x - 400, center_y - 100, 800, 250)
-            text_bg_surface = pygame.Surface((800, 250), pygame.SRCALPHA)
+            # Make it taller if we have progress info to show
+            bg_height = 350 if self.order_manager is not None else 250
+            text_bg_rect = pygame.Rect(center_x - 400, center_y - 120, 800, bg_height)
+            text_bg_surface = pygame.Surface((800, bg_height), pygame.SRCALPHA)
             text_bg_surface.fill((20, 30, 40, 200))
             self.screen.blit(text_bg_surface, text_bg_rect.topleft)
 
@@ -738,21 +746,25 @@ class DeliveryDialog:
                 main_text = "KIITOS!"
 
             main_surf = big_font.render(main_text, True, pink_color)
-            main_rect = main_surf.get_rect(center=(center_x, center_y - 50))
+            main_rect = main_surf.get_rect(center=(center_x, center_y - 70))
             self.screen.blit(main_surf, main_rect)
 
             # Points earned
             points_text = f"+{self.celebration_points} pistettä"
             points_surf = medium_font.render(points_text, True, self.accent_color)
-            points_rect = points_surf.get_rect(center=(center_x, center_y + 30))
+            points_rect = points_surf.get_rect(center=(center_x, center_y + 10))
             self.screen.blit(points_surf, points_rect)
 
             # Bonus text for full delivery
             if self.is_full_delivery:
                 bonus_text = f"(sisältää +{self.full_order_bonus} bonuksen)"
                 bonus_surf = self.text_font.render(bonus_text, True, (180, 180, 180))
-                bonus_rect = bonus_surf.get_rect(center=(center_x, center_y + 80))
+                bonus_rect = bonus_surf.get_rect(center=(center_x, center_y + 60))
                 self.screen.blit(bonus_surf, bonus_rect)
+
+            # Draw progress toward level completion
+            if self.order_manager is not None:
+                self._draw_progress_info(center_x, center_y + 130)
 
         # Draw close button when user can close
         if self.celebration_can_close:
@@ -769,3 +781,56 @@ class DeliveryDialog:
             hint_surf = self.small_font.render(hint_text, True, (150, 150, 150))
             hint_rect = hint_surf.get_rect(center=(self.ok_button_rect.centerx, self.ok_button_rect.top - 20))
             self.screen.blit(hint_surf, hint_rect)
+
+    def _draw_progress_info(self, center_x: int, y: int):
+        """Draw progress toward level completion (orders/plants/score)."""
+        if self.order_manager is None:
+            return
+
+        progress_font = pygame.font.Font(None, 40)
+        line_height = 36
+
+        # Get current progress and requirements
+        current_orders = self.order_manager.orders_completed_count
+        required_orders = self.order_manager.orders_required
+
+        current_plants = self.order_manager.plants_delivered_count
+        required_plants = self.order_manager.plants_required
+
+        current_score = self.order_manager.total_score
+        required_score = self.order_manager.score_required
+
+        # Build progress lines - only show categories with requirements
+        progress_lines = []
+
+        # Orders progress (always show if required > 0)
+        if required_orders > 0:
+            orders_done = current_orders >= required_orders
+            orders_color = self.success_color if orders_done else (200, 200, 200)
+            check_mark = " ✓" if orders_done else ""
+            orders_text = f"Tilaukset: {current_orders}/{required_orders}{check_mark}"
+            progress_lines.append((orders_text, orders_color))
+
+        # Plants progress (only show if required > 0)
+        if required_plants > 0:
+            plants_done = current_plants >= required_plants
+            plants_color = self.success_color if plants_done else (200, 200, 200)
+            check_mark = " ✓" if plants_done else ""
+            plants_text = f"Kasvit: {current_plants}/{required_plants}{check_mark}"
+            progress_lines.append((plants_text, plants_color))
+
+        # Score progress (only show if required > 0)
+        if required_score > 0:
+            score_done = current_score >= required_score
+            score_color = self.success_color if score_done else (200, 200, 200)
+            check_mark = " ✓" if score_done else ""
+            score_text = f"Pisteet: {current_score}/{required_score}{check_mark}"
+            progress_lines.append((score_text, score_color))
+
+        # Draw all progress lines
+        current_y = y
+        for text, color in progress_lines:
+            text_surf = progress_font.render(text, True, color)
+            text_rect = text_surf.get_rect(center=(center_x, current_y))
+            self.screen.blit(text_surf, text_rect)
+            current_y = current_y + line_height
