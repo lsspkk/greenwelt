@@ -108,16 +108,23 @@ class MapScreen:
                     batch_size=self.map_config.get("batch_size", 3),
                     batch_delay=self.map_config.get("batch_delay", 10.0),
                     accept_time=self.map_config.get("accept_time", 15.0),
-                    orders_required=difficulty_config.get("orders_required", self.map_config.get("orders_required", 10)),
+                    orders_required=difficulty_config.get(
+                        "orders_required", self.map_config.get("orders_required", 10)),
                     plants_required=self.map_config.get("plants_required", 0),
-                    active_order_limit=self.map_config.get("active_order_limit", 6),
-                    score_required=difficulty_config.get("score_required", self.map_config.get("score_required", 0)),
-                    points_per_plant=self.map_config.get("points_per_plant", 10),
-                    full_order_bonus=self.map_config.get("full_order_bonus", 20)
+                    active_order_limit=self.map_config.get(
+                        "active_order_limit", 6),
+                    score_required=difficulty_config.get(
+                        "score_required", self.map_config.get("score_required", 0)),
+                    points_per_plant=self.map_config.get(
+                        "points_per_plant", 10),
+                    full_order_bonus=self.map_config.get(
+                        "full_order_bonus", 20)
                 )
 
-            debug.info(f"Loaded map config from {json_path} (difficulty: {difficulty})")
-            debug.info(f"Difficulty settings: orders_required={difficulty_config.get('orders_required')}, score_required={difficulty_config.get('score_required')}")
+            debug.info(
+                f"Loaded map config from {json_path} (difficulty: {difficulty})")
+            debug.info(
+                f"Difficulty settings: orders_required={difficulty_config.get('orders_required')}, score_required={difficulty_config.get('score_required')}")
         except Exception as e:
             debug.error(f"Failed to load map config: {e}")
 
@@ -259,7 +266,8 @@ class MapScreen:
         greenery_config = self.map_config.get("greenery", {})
         if greenery_config.get("enabled", True):
             if "green_color" in greenery_config:
-                self.greenery_system.green_color = tuple(greenery_config["green_color"])
+                self.greenery_system.green_color = tuple(
+                    greenery_config["green_color"])
 
         # Get map image dimensions
         bg = esper.component_for_entity(self.map_entity, MapBackground)
@@ -273,7 +281,8 @@ class MapScreen:
 
             # Set the surface on the greenery entity
             if self.greenery_entity is not None:
-                greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
+                greenery_layer = esper.component_for_entity(
+                    self.greenery_entity, GreeneryLayer)
                 greenery_layer.surface = self.greenery_system.get_surface()
 
             debug.info("Greenery system initialized (starts white)")
@@ -309,10 +318,12 @@ class MapScreen:
 
         # Update the greenery entity surface
         if self.greenery_entity is not None:
-            greenery_layer = esper.component_for_entity(self.greenery_entity, GreeneryLayer)
+            greenery_layer = esper.component_for_entity(
+                self.greenery_entity, GreeneryLayer)
             greenery_layer.surface = self.greenery_system.get_surface()
 
-        debug.info(f"Added greenery at {location_name} ({location_x}, {location_y})")
+        debug.info(
+            f"Added greenery at {location_name} ({location_x}, {location_y})")
 
     def load_locations(self, json_path: str):
         """Load location markers from JSON file"""
@@ -348,6 +359,7 @@ class MapScreen:
         if self.player_entity is None:
             return None
 
+        esper.switch_world(self.world_name)
         pos = esper.component_for_entity(self.player_entity, Position)
         closest_loc = None
         closest_dist = None
@@ -376,6 +388,7 @@ class MapScreen:
         """Move the player a single step toward the target, checking collision."""
         if self.player_entity is None:
             return
+        esper.switch_world(self.world_name)
         pos = esper.component_for_entity(self.player_entity, Position)
         vel = esper.component_for_entity(self.player_entity, Velocity)
         road_layer = esper.component_for_entity(self.map_entity, RoadLayer)
@@ -417,6 +430,7 @@ class MapScreen:
     def stop_player(self):
         """Stop the player's movement"""
         if self.player_entity is not None:
+            esper.switch_world(self.world_name)
             vel = esper.component_for_entity(self.player_entity, Velocity)
             vel.vx = 0.0
             vel.vy = 0.0
@@ -425,6 +439,7 @@ class MapScreen:
         """Get the player's current position"""
         if self.player_entity is None:
             return None
+        esper.switch_world(self.world_name)
         pos = esper.component_for_entity(self.player_entity, Position)
         return (pos.x, pos.y)
 
@@ -433,6 +448,7 @@ class MapScreen:
         if self.player_entity is None:
             return False
 
+        esper.switch_world(self.world_name)
         pos = esper.component_for_entity(self.player_entity, Position)
         dx = target_x - pos.x
         dy = target_y - pos.y
