@@ -103,11 +103,16 @@ async def main(start_map=1):
                 current_map_number = start_map
                 current_map = MapScreen(screen, "world", audio)
                 current_map.initialize()
-                current_map.load_config(f"data/map{current_map_number}_config.json", difficulty=difficulty)
-                current_map.load_map_image(f"assets/map{current_map_number}.png")
-                current_map.load_roads(f"data/map{current_map_number}_roads.json")
-                current_map.load_locations(f"data/map{current_map_number}_locations.json")
-                current_map.load_orders(f"data/map{current_map_number}_orders.json")
+                current_map.load_config(
+                    f"data/map{current_map_number}_config.json", difficulty=difficulty)
+                current_map.load_map_image(
+                    f"assets/map{current_map_number}.png")
+                current_map.load_roads(
+                    f"data/map{current_map_number}_roads.json")
+                current_map.load_locations(
+                    f"data/map{current_map_number}_locations.json")
+                current_map.load_orders(
+                    f"data/map{current_map_number}_orders.json")
                 current_map.initialize_greenery()
                 current_map.initialize_greenhouse_inventory()
                 current_map.initialize_start_position()
@@ -117,9 +122,12 @@ async def main(start_map=1):
                 map_ui.on_greenery_add = current_map.add_greenery_at_delivery
 
                 # Set up greenhouse system integration
-                map_ui.set_greenhouse_system(current_map.greenhouse_inventory_system)
-                map_ui.set_greenhouse_location(current_map.get_greenhouse_location())
-                map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
+                map_ui.set_greenhouse_system(
+                    current_map.greenhouse_inventory_system)
+                map_ui.set_greenhouse_location(
+                    current_map.get_greenhouse_location())
+                map_ui.set_greenhouse_config(
+                    current_map.get_greenhouse_pick_radius())
                 map_ui.get_player_position = current_map.get_player_position
 
                 # Reset game score for new game
@@ -223,24 +231,31 @@ async def main(start_map=1):
                 debug.info(f"Map {current_map_number} completed!")
 
                 # Record map scores (game_score reads all data from order_manager)
-                game_score.add_completed_map(current_map_number, current_map.order_manager)
+                game_score.add_completed_map(
+                    current_map_number, current_map.order_manager)
 
                 # Log summary
                 debug.info(game_score.get_map_summary(current_map_number))
-                debug.info(f"Total game score so far: {game_score.get_total_score()}")
+                debug.info(
+                    f"Total game score so far: {game_score.get_total_score()}")
 
                 if current_map_number < max_maps:
                     # Load next map
                     current_map_number += 1
                     debug.info(f"Loading map {current_map_number}")
 
-                    current_map = MapScreen(screen, "world")
+                    current_map = MapScreen(screen, "world", audio)
                     current_map.initialize()
-                    current_map.load_config(f"data/map{current_map_number}_config.json", difficulty=difficulty)
-                    current_map.load_map_image(f"assets/map{current_map_number}.png")
-                    current_map.load_roads(f"data/map{current_map_number}_roads.json")
-                    current_map.load_locations(f"data/map{current_map_number}_locations.json")
-                    current_map.load_orders(f"data/map{current_map_number}_orders.json")
+                    current_map.load_config(
+                        f"data/map{current_map_number}_config.json", difficulty=difficulty)
+                    current_map.load_map_image(
+                        f"assets/map{current_map_number}.png")
+                    current_map.load_roads(
+                        f"data/map{current_map_number}_roads.json")
+                    current_map.load_locations(
+                        f"data/map{current_map_number}_locations.json")
+                    current_map.load_orders(
+                        f"data/map{current_map_number}_orders.json")
                     current_map.initialize_greenery()
                     current_map.initialize_greenhouse_inventory()
                     current_map.initialize_start_position()
@@ -248,9 +263,12 @@ async def main(start_map=1):
                     # Create new map UI
                     map_ui = MapUI(screen, current_map.order_manager, audio)
                     map_ui.on_greenery_add = current_map.add_greenery_at_delivery
-                    map_ui.set_greenhouse_system(current_map.greenhouse_inventory_system)
-                    map_ui.set_greenhouse_location(current_map.get_greenhouse_location())
-                    map_ui.set_greenhouse_config(current_map.get_greenhouse_pick_radius())
+                    map_ui.set_greenhouse_system(
+                        current_map.greenhouse_inventory_system)
+                    map_ui.set_greenhouse_location(
+                        current_map.get_greenhouse_location())
+                    map_ui.set_greenhouse_config(
+                        current_map.get_greenhouse_pick_radius())
                     map_ui.get_player_position = current_map.get_player_position
                     audio.play("mapstart")
 
@@ -288,6 +306,7 @@ async def main(start_map=1):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--map', type=int, default=1, help='Starting map number')
+    parser.add_argument('--map', type=int, default=1,
+                        help='Starting map number')
     args = parser.parse_args()
     asyncio.run(main(start_map=args.map))
