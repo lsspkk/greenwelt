@@ -54,12 +54,61 @@ After this fix:
 - The game will render more consistently across browsers
 - Performance may improve slightly
 
+## Implementation Details
+
+### Changes Made
+
+1. **Updated `build.py`**: Added post-processing step that automatically adds `<!DOCTYPE html>` to the generated HTML file
+   - Checks if DOCTYPE is missing before adding it
+   - Runs after pygbag completes the build
+   - Also applies the Finnish translation ("Aloita kasvipeli!")
+
+2. **Created HTML template in `web/index.html`**: For future use with proper DOCTYPE structure
+   - Includes charset and viewport meta tags
+   - Contains proper HTML5 structure
+   - Can be used if pygbag's custom template system is configured
+
+### Why This Works
+
+Pygbag uses a default HTML template from its CDN that doesn't include DOCTYPE. Rather than trying to override pygbag's template system (which can be complex), the post-processing approach:
+- Is simple and maintainable
+- Doesn't interfere with pygbag's build process
+- Works reliably every time
+- Can be extended with other post-processing steps if needed
+
 ## Testing Checklist
 
-- [ ] Run `uv run python build.py`
-- [ ] Check that `docs/index.html` starts with `<!DOCTYPE html>`
-- [ ] Deploy to GitHub Pages
-- [ ] Open the game in browser
-- [ ] Check console - "Quirks Mode" warning should be gone
-- [ ] Verify game runs correctly
-- [ ] Test on multiple browsers (Chrome, Firefox, Safari)
+- [x] Run `uv run python build.py`
+- [x] Check that `docs/index.html` starts with `<!DOCTYPE html>`
+- [ ] Test locally: `uv run python build.py --serve`
+- [ ] Open http://localhost:8000 in browser
+- [ ] Check console (F12) - "Quirks Mode" warning should be gone
+- [ ] Verify game renders correctly (not black screen)
+- [ ] Push to GitHub Pages and test deployment
+- [ ] Test on multiple browsers (Chrome, Firefox, Safari, Mobile)
+
+## Local Testing
+
+```bash
+# Build and run local test server
+uv run python build.py --serve
+
+# Then open browser to http://localhost:8000
+```
+
+## Deploy to GitHub Pages
+
+```bash
+# After testing locally:
+uv run python build.py
+
+# Commit and push
+git add docs/
+git commit -m "Fix: Add DOCTYPE to web build for Standards Mode"
+git push
+```
+
+Then enable GitHub Pages in repository Settings (if not already enabled):
+- Settings > Pages
+- Source: Deploy from a branch
+- Branch: main, folder: /docs
