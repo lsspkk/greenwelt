@@ -136,6 +136,24 @@ def build():
     file_count = len([f for f in files if f.is_file()])
 
     print(f"  Copied {file_count} files to {DOCS_DIR}")
+
+    # Post-process: Replace loading screen text with Finnish version
+    index_html = DOCS_DIR / "index.html"
+    if index_html.exists():
+        with open(index_html, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Replace "Ready to start !" with "Aloita kasvipeli!"
+        modified = content.replace(
+            '"Ready to start !"',
+            '"Aloita kasvipeli!"'
+        )
+
+        if modified != content:
+            with open(index_html, 'w', encoding='utf-8') as f:
+                f.write(modified)
+            print("  Updated loading screen text to Finnish")
+
     print()
     print("Build complete!")
     print()

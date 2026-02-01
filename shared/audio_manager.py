@@ -6,7 +6,52 @@ import random
 import pygame
 from pathlib import Path
 
-import yaml
+# Try to import yaml, fall back to simple parsing if not available
+try:
+    import yaml
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
+
+def parse_soundmap_simple(content: str) -> dict:
+    """Simple parser for soundmap.yaml format without yaml library."""
+    result = {}
+    current_key = None
+    current_sounds = []
+    current_volume = 1.0
+
+    for line in content.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Top-level key (no indentation)
+        if not line.startswith(' ') and not line.startswith('\t') and stripped.endswith(':'):
+            # Save previous entry
+            if current_key is not None:
+                result[current_key] = {'sounds': current_sounds, 'volume': current_volume}
+            current_key = stripped[:-1]
+            current_sounds = []
+            current_volume = 1.0
+
+        # Sound file entry
+        elif stripped.startswith('- '):
+            sound_path = stripped[2:].strip()
+            current_sounds.append(sound_path)
+
+        # Volume entry
+        elif stripped.startswith('volume:'):
+            try:
+                current_volume = float(stripped.split(':')[1].strip())
+            except (ValueError, IndexError):
+                current_volume = 1.0
+
+    # Save last entry
+    if current_key is not None:
+        result[current_key] = {'sounds': current_sounds, 'volume': current_volume}
+
+    return result
 
 
 def is_running_in_wasm():
@@ -100,7 +145,11 @@ class AudioManager:
         # load soundmap.yaml file from data
         yaml_path = Path("data/soundmap.yaml")
         with open(yaml_path, 'r', encoding='utf-8') as f:
-            self.soundmap = yaml.safe_load(f)
+            content = f.read()
+            if HAS_YAML:
+                self.soundmap = yaml.safe_load(content)
+            else:
+                self.soundmap = parse_soundmap_simple(content)
 
 
 
