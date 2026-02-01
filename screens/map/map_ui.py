@@ -616,55 +616,43 @@ class MapUI:
 
         # Draw mask pattern based on state
         if mask_state == MaskState.CARRYING:
-            # Green leaf circles pattern
-            leaf_color_1 = (80, 160, 100)
-            leaf_color_2 = (100, 180, 120)
-            leaf_color_3 = (70, 150, 90)
-
-            pygame.draw.circle(self.screen, leaf_color_1, (cx - 10, cy + 8), 3)
-            pygame.draw.circle(self.screen, leaf_color_2, (cx + 5, cy + 10), 3)
-            pygame.draw.circle(self.screen, leaf_color_3, (cx - 5, cy + 15), 3)
-            pygame.draw.circle(self.screen, leaf_color_1, (cx + 10, cy + 12), 3)
+            # Green tinted eyeglasses with brown frame
+            frame_color = (100, 70, 40)
+            lens_color = (80, 160, 100, 150)
+            # Left lens
+            pygame.draw.ellipse(self.screen, frame_color, (cx - 20, eye_y - 8, 16, 12), 2)
+            pygame.draw.ellipse(self.screen, (80, 160, 100), (cx - 19, eye_y - 7, 14, 10))
+            # Right lens
+            pygame.draw.ellipse(self.screen, frame_color, (cx + 4, eye_y - 8, 16, 12), 2)
+            pygame.draw.ellipse(self.screen, (80, 160, 100), (cx + 5, eye_y - 7, 14, 10))
+            # Bridge
+            pygame.draw.line(self.screen, frame_color, (cx - 4, eye_y - 2), (cx + 4, eye_y - 2), 2)
 
         elif mask_state == MaskState.GREENHOUSE:
-            # Vertical wavy lines pattern
-            line_color = (120, 200, 140)
-
-            for x_offset in [-8, 0, 8]:
-                points = []
-                for y in range(-20, 21, 5):
-                    wave_x = cx + x_offset + int(2 * math.sin(y / 5))
-                    wave_y = cy + y
-                    points.append((wave_x, wave_y))
-                if len(points) > 1:
-                    pygame.draw.lines(self.screen, line_color, False, points, 1)
+            # Light green eyeglasses with gold frame
+            frame_color = (200, 170, 80)
+            lens_color = (120, 200, 140)
+            # Left lens
+            pygame.draw.ellipse(self.screen, frame_color, (cx - 20, eye_y - 8, 16, 12), 2)
+            pygame.draw.ellipse(self.screen, lens_color, (cx - 19, eye_y - 7, 14, 10))
+            # Right lens
+            pygame.draw.ellipse(self.screen, frame_color, (cx + 4, eye_y - 8, 16, 12), 2)
+            pygame.draw.ellipse(self.screen, lens_color, (cx + 5, eye_y - 7, 14, 10))
+            # Bridge
+            pygame.draw.line(self.screen, frame_color, (cx - 4, eye_y - 2), (cx + 4, eye_y - 2), 2)
 
         elif mask_state == MaskState.CELEBRATING:
-            # Golden stars pattern
-            star_color = (255, 220, 100)
-
-            # 4 small stars around the face
-            star_positions = [
-                (cx - 18, cy - 18),
-                (cx + 18, cy - 18),
-                (cx - 18, cy + 18),
-                (cx + 18, cy + 18)
-            ]
-
-            for star_x, star_y in star_positions:
-                # Draw simple 4-pointed star
-                size = 4
-                points = [
-                    (star_x, star_y - size),
-                    (star_x - 2, star_y - 2),
-                    (star_x - size, star_y),
-                    (star_x - 2, star_y + 2),
-                    (star_x, star_y + size),
-                    (star_x + 2, star_y + 2),
-                    (star_x + size, star_y),
-                    (star_x + 2, star_y - 2)
-                ]
-                pygame.draw.polygon(self.screen, star_color, points)
+            # Party sunglasses with rainbow frame
+            frame_color = (255, 100, 150)
+            lens_color = (255, 220, 100)
+            # Left lens (star shape approximation - just use circle)
+            pygame.draw.ellipse(self.screen, frame_color, (cx - 22, eye_y - 10, 18, 14), 2)
+            pygame.draw.ellipse(self.screen, lens_color, (cx - 21, eye_y - 9, 16, 12))
+            # Right lens
+            pygame.draw.ellipse(self.screen, frame_color, (cx + 4, eye_y - 10, 18, 14), 2)
+            pygame.draw.ellipse(self.screen, lens_color, (cx + 5, eye_y - 9, 16, 12))
+            # Bridge
+            pygame.draw.line(self.screen, frame_color, (cx - 4, eye_y - 3), (cx + 4, eye_y - 3), 3)
 
     def _draw_door_icon(self, rect: pygame.Rect, enabled: bool = True):
         """Draw a door icon for the delivery button."""

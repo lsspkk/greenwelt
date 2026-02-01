@@ -255,6 +255,7 @@ async def main(start_map=1):
                     audio.play("mapstart")
 
                     target = None
+                    map_overlay_action = None  # Reset overlay state for new map
                     debug.info(f"Map {current_map_number} initialized")
                 else:
                     # All maps complete - show end game score screen

@@ -158,14 +158,20 @@ class AudioManager:
         for sound_key, sound_info in self.soundmap.items():
             sound_files.extend(sound_info.get("sounds", []))
 
+        loaded_count = 0
         for filename in sound_files:
             filepath = Path(filename)
             if filepath.exists():
                 name = filename.replace(".ogg", "")
                 try:
                     self.sounds[name] = pygame.mixer.Sound(str(filepath))
+                    loaded_count += 1
                 except Exception as e:
                     print(f"Failed to load sound {filename}: {e}")
+            else:
+                print(f"Sound file not found: {filename}")
+        
+        print(f"Loaded {loaded_count}/{len(sound_files)} sounds")
 
     def play(self, sound_name: str):
         """Play a sound effect by name"""
@@ -181,13 +187,16 @@ class AudioManager:
             sound_files = options.get("sounds", [])
             volume = options.get("volume", 1.0)
             if sound_files:
-                chosen_file = random.choice(sound_files)
-                chosen_name = chosen_file.replace(".ogg", "")
-                if chosen_name in self.sounds:
-                    sound = self.sounds[chosen_name]
-                    sound.set_volume(volume)
-                    sound.play()
-                    return
+                # Shuffle and try each sound until one works
+                shuffled = sound_files.copy()
+                random.shuffle(shuffled)
+                for chosen_file in shuffled:
+                    chosen_name = chosen_file.replace(".ogg", "")
+                    if chosen_name in self.sounds:
+                        sound = self.sounds[chosen_name]
+                        sound.set_volume(volume)
+                        sound.play()
+                        return
 
 
 

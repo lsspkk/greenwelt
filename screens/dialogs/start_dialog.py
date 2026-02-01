@@ -34,16 +34,26 @@ class StartDialog:
                 "Jokainen lehti on lupaus tulevasta,",
                 "jossa luonto ja betoni löytävät tasapainon,",
                 "ja elämä kukoistaa jälleen."
+            ],
+            [
+                "Jokainen kerta kun kasvi kotiutuu,",
+                "nousee silta luonnon ja kaupungin välille,",
+                "vihreä silta, johon linnun laulu palaa,",
+                "missä lapsi näkee ensimmäisen perhosen,",
+                "ja ilmassa värjyy vihreä tulevaisuus."
             ]
         ]
-        
+
         self.signatures = [
-            "Sonnet 4.5"
+            "Sonnet 4.5",
+            "Opus 4.5"
         ]
-        
-        # Select first poem
-        self.current_poem = self.poems[0]
-        self.current_signature = self.signatures[0]
+
+        # Randomly select a poem and signature
+        import random
+        poem_index = random.randint(0, len(self.poems) - 1)
+        self.current_poem = self.poems[poem_index]
+        self.current_signature = self.signatures[poem_index]
 
         # Button size and spacing
         self.button_size = 120
