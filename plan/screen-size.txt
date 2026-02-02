@@ -1,0 +1,522 @@
+# Screen Size Analysis and Fix Plan
+
+## Current State
+
+Game uses fixed 1920x1080 resolution. In WASM/browser:
+- Pygame maintains aspect ratio (16:9)
+- Game area is centered with black bars (letterboxing/pillarboxing)
+- Wide landscape screens: black bars on left/right
+- Tall screens: black bars on top/bottom
+- Non-standard ratios: both may occur
+
+Current implementation in `shared/input_manager.py`:
+- `get_viewport_size()` - tries to get actual canvas size via JS `getBoundingClientRect()`
+- `screen_to_game_coords()` - transforms screen coords to game coords accounting for letterboxing
+
+## The Bug
+
+Click/touch coordinates are wrong when screen ratio differs from 1920x1080.
+The transformation math in `screen_to_game_coords()` appears correct, but the
+issue is likely in how we GET the viewport size in WASM.
+
+### Suspected Issues
+
+1. **getBoundingClientRect() timing**: After fullscreen toggle, canvas may not
+   immediately resize. The rect values may be stale.
+
+2. **Pygame mouse events in WASM**: `event.pos` from pygame may already be
+   in "game coordinates" (scaled by pygbag's internal handling) OR may be
+   in actual screen coordinates - need to verify which.
+
+3. **FINGERDOWN normalized coordinates**: Touch events give 0.0-1.0 values
+   but the reference size may be wrong.
+
+4. **Fullscreen change detection**: No callback after browser fullscreen
+   completes - we may use old viewport values.
+
+
+================================================================================
+## OPTION A: Fix Mouse/Touch Coordinate Transformation (Keep Fixed Size)
+================================================================================
+
+Keep the game at fixed 1920x1080 but correctly transform coordinates.
+
+### What Needs Fixing
+
+1. **Verify pygame event.pos behavior in pygbag**
+   - Does pygbag pre-transform mouse coordinates?
+   - If yes, our transformation double-transforms them
+   - If no, our transformation is correct but viewport size is wrong
+
+2. **Get reliable viewport size in browser**
+
+   JavaScript API to use:
+   ```javascript
+   // Get the actual canvas displayed size (CSS pixels)
+   const canvas = document.getElementById('canvas');
+   const rect = canvas.getBoundingClientRect();
+   const viewportWidth = rect.width;
+   const viewportHeight = rect.height;
+
+   // OR get window inner size (for fullscreen)
+   const windowWidth = window.innerWidth;
+   const windowHeight = window.innerHeight;
+   ```
+
+   The issue: `getBoundingClientRect()` returns CSS pixels, which may differ
+   from the logical pixels pygame receives for mouse events.
+
+3. **Add fullscreen change listener**
+
+   JavaScript:
+   ```javascript
+   document.addEventListener('fullscreenchange', () => {
+     // Canvas size changed - Python needs to know
+     const canvas = document.getElementById('canvas');
+     const rect = canvas.getBoundingClientRect();
+
+     // Expose to Python via window object
+     window.__pygameViewport = {
+       width: rect.width,
+       height: rect.height,
+       // Device pixel ratio for HiDPI screens
+       dpr: window.devicePixelRatio || 1
+     };
+   });
+   ```
+
+4. **Read viewport from Python**
+
+   In input_manager.py:
+   ```python
+   def get_viewport_size(self):
+       if IS_BROWSER and js is not None:
+           try:
+               viewport = js.window.__pygameViewport
+               if viewport:
+                   return (int(viewport.width), int(viewport.height))
+           except:
+               pass
+       # fallback...
+   ```
+
+5. **Consider devicePixelRatio**
+
+   On HiDPI displays (Retina, etc.), CSS pixels != device pixels.
+   Mouse events may be in device pixels while getBoundingClientRect
+   returns CSS pixels. Need to multiply/divide by devicePixelRatio.
+
+### Transformation Logic (if correct viewport is known)
+
+The current math in screen_to_game_coords() is:
+
+```
+scale = min(window_width / game_width, window_height / game_height)
+rendered_width = game_width * scale
+rendered_height = game_height * scale
+offset_x = (window_width - rendered_width) / 2
+offset_y = (window_height - rendered_height) / 2
+game_x = (screen_x - offset_x) / scale
+game_y = (screen_y - offset_y) / scale
+```
+
+This is correct IF:
+- screen_x, screen_y are in the same coordinate space as window_width/height
+- The scaling matches what pygbag actually does
+
+### Investigation Needed
+
+Before implementing, we need to verify:
+1. What coordinate space does pygame give us for event.pos in WASM?
+2. Does pygbag already transform mouse coordinates?
+3. What is the devicePixelRatio on test devices?
+
+Debug approach - add on-screen display:
+```python
+# In main.py, draw debug info
+debug_text = f"viewport: {input_mgr.get_viewport_size()}"
+debug_text2 = f"raw mouse: {pygame.mouse.get_pos()}"
+debug_text3 = f"transformed: {input_mgr.touch_pos}"
+# Draw at fixed screen positions
+```
+
+
+================================================================================
+## OPTION B: Adapt Map Screen to Fill Different Sizes
+================================================================================
+
+Make the game adapt to different screen sizes instead of letterboxing.
+
+### What Changes
+
+1. **Map Screen**: Expand to fill available space
+   - Camera system already exists with zoom
+   - Can show more of the map on wider screens
+   - Player stays centered
+
+2. **Phone Dialog**: Keep current size, center on screen
+   - Already uses self.phone_rect calculated from screen.get_size()
+   - Would work if we update screen reference after resize
+
+3. **Delivery Dialog**: Keep current size, center on screen
+   - Same pattern as phone
+
+4. **Greenhouse Background**: Scale to fill, center content
+   - Background image scales to cover
+   - UI elements stay centered
+
+5. **Start/Score Dialogs**: Content centered, background fills
+
+### Implementation Approach
+
+1. **Dynamic screen size**
+
+   Instead of fixed 1920x1080, detect actual size:
+   ```python
+   # In main.py
+   screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+   # OR in WASM
+   screen = pygame.display.set_mode((1920, 1080))  # pygbag handles scaling
+   ```
+
+2. **Update screen references after fullscreen**
+
+   Already done in main.py:
+   ```python
+   screen = pygame.display.get_surface()
+   start_dialog.screen = screen
+   score_screen.screen = screen
+   debug_overlay.screen = screen
+   ```
+
+   But MapScreen, MapUI etc also need updating.
+
+3. **Map camera viewport**
+
+   The Camera component already has screen_width/screen_height.
+   These need updating when screen size changes.
+
+4. **Dialog positioning**
+
+   Each dialog that uses screen.get_size() for centering is already
+   somewhat adaptive - but they cache their rects on __init__.
+   Need to recalculate when screen size changes.
+
+### Coordinate Transformation Still Needed
+
+Even with Option B, we need correct coordinate transformation because:
+- In WASM, the actual browser canvas may be larger/smaller than pygame surface
+- HiDPI scaling affects coordinates
+- Fullscreen may not give exact resolution we requested
+
+
+================================================================================
+## JavaScript APIs Reference
+================================================================================
+
+### Get Canvas Size
+```javascript
+const canvas = document.getElementById('canvas');
+const rect = canvas.getBoundingClientRect();
+console.log('Canvas CSS size:', rect.width, rect.height);
+console.log('Canvas pixel size:', canvas.width, canvas.height);
+```
+
+### Get Window Size
+```javascript
+console.log('Window inner:', window.innerWidth, window.innerHeight);
+console.log('Screen:', screen.width, screen.height);
+console.log('Device pixel ratio:', window.devicePixelRatio);
+```
+
+### Fullscreen Change Listener
+```javascript
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    console.log('Entered fullscreen');
+  } else {
+    console.log('Exited fullscreen');
+  }
+  // Update stored viewport size
+  setTimeout(() => {
+    const rect = document.getElementById('canvas').getBoundingClientRect();
+    window.__viewport = { width: rect.width, height: rect.height };
+  }, 100); // Small delay for browser to update layout
+});
+```
+
+### Expose Data to Python (Pyodide/Pygbag)
+```javascript
+// Set on window object for Python to read via js module
+window.__gameViewport = {
+  width: 0,
+  height: 0,
+  dpr: window.devicePixelRatio || 1
+};
+
+function updateViewport() {
+  const rect = document.getElementById('canvas').getBoundingClientRect();
+  window.__gameViewport.width = rect.width;
+  window.__gameViewport.height = rect.height;
+}
+
+// Update initially and on resize
+updateViewport();
+window.addEventListener('resize', updateViewport);
+document.addEventListener('fullscreenchange', () => setTimeout(updateViewport, 100));
+```
+
+
+================================================================================
+## WASM Coordinate Test Setup
+================================================================================
+
+### Folder Structure
+
+```
+greenwelt/
+├── tests/
+│   ├── test-a/
+│   │   └── main.py    # Simple click test - raw pygame coordinates
+│   └── test-b/
+│       └── main.py    # Click test with our transformation applied
+├── docs/
+│   ├── test-a/        # Packaged WASM build of test-a
+│   └── test-b/        # Packaged WASM build of test-b
+└── deploy-tests.py    # Script to package test-a and test-b to docs/
+```
+
+### Test Content (both test-a and test-b)
+
+Simple single-screen pygame app:
+- Draws several marker points at known coordinates (corners, center, etc.)
+- On click/touch, draws a marker at clicked position
+- Displays text showing:
+  - Marker positions (where dots are drawn)
+  - Raw event.pos from pygame
+  - Transformed coordinates (test-b only)
+  - Viewport size detected
+- All info visible on screen instantly
+
+test-a: Uses raw pygame coordinates only
+test-b: Applies our InputManager transformation
+
+### deploy-tests.py
+
+```bash
+uv run deploy-tests.py          # Build both test-a and test-b
+uv run deploy-tests.py --serve  # Build and serve locally
+```
+
+Packages each test folder with pygbag into docs/test-a and docs/test-b.
+
+
+================================================================================
+## Local Test Harness (Desktop Simulation)
+================================================================================
+
+Create `tests/screen_size_test.py` to simulate different screen sizes:
+
+```python
+"""
+Visual test for screen size handling.
+
+Simulates browser letterboxing behavior locally.
+The game renders to a fixed-size surface, which is then
+scaled and centered on a larger/different-ratio window.
+
+Usage:
+  uv run tests/screen_size_test.py --ratio 16:10
+  uv run tests/screen_size_test.py --ratio 21:9
+  uv run tests/screen_size_test.py --size 1280x800
+"""
+
+import argparse
+import pygame
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from shared.input_manager import InputManager
+
+GAME_WIDTH = 1920
+GAME_HEIGHT = 1080
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ratio', default='16:9', help='Window aspect ratio (e.g., 21:9, 16:10)')
+    parser.add_argument('--size', help='Window size (e.g., 1280x800)')
+    parser.add_argument('--scale', type=float, default=0.6, help='Scale factor for window')
+    args = parser.parse_args()
+
+    pygame.init()
+
+    # Calculate window size
+    if args.size:
+        window_w, window_h = map(int, args.size.split('x'))
+    else:
+        ratio_w, ratio_h = map(int, args.ratio.split(':'))
+        # Use scaled game height and calculate width from ratio
+        window_h = int(GAME_HEIGHT * args.scale)
+        window_w = int(window_h * ratio_w / ratio_h)
+
+    # Create window (simulates browser viewport)
+    window = pygame.display.set_mode((window_w, window_h))
+    pygame.display.set_caption(f'Screen Size Test - {window_w}x{window_h}')
+
+    # Create game surface (fixed 1920x1080)
+    game_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
+
+    # Calculate letterbox scaling (same as browser does)
+    scale = min(window_w / GAME_WIDTH, window_h / GAME_HEIGHT)
+    scaled_w = int(GAME_WIDTH * scale)
+    scaled_h = int(GAME_HEIGHT * scale)
+    offset_x = (window_w - scaled_w) // 2
+    offset_y = (window_h - scaled_h) // 2
+
+    clock = pygame.time.Clock()
+    input_mgr = InputManager()
+
+    # Override viewport size getter to return window size
+    original_get_viewport = input_mgr.get_viewport_size
+    input_mgr.get_viewport_size = lambda: (window_w, window_h)
+
+    font = pygame.font.Font(None, 48)
+    small_font = pygame.font.Font(None, 32)
+
+    click_markers = []  # List of (game_x, game_y) for click visualization
+
+    running = True
+    while running:
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_c:
+                click_markers.clear()
+
+        # IMPORTANT: For this test, we need to manually transform coordinates
+        # because pygame gives us window coordinates, not game coordinates
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                window_x, window_y = event.pos
+                # Transform to game coordinates
+                game_x = (window_x - offset_x) / scale
+                game_y = (window_y - offset_y) / scale
+                click_markers.append((game_x, game_y))
+                print(f'Window: ({window_x}, {window_y}) -> Game: ({game_x:.0f}, {game_y:.0f})')
+
+        input_mgr.process_events(events)
+
+        # Draw on game surface
+        game_surface.fill((40, 60, 80))
+
+        # Draw grid to visualize coordinate space
+        for x in range(0, GAME_WIDTH + 1, 200):
+            pygame.draw.line(game_surface, (60, 80, 100), (x, 0), (x, GAME_HEIGHT))
+        for y in range(0, GAME_HEIGHT + 1, 200):
+            pygame.draw.line(game_surface, (60, 80, 100), (0, y), (GAME_WIDTH, y))
+
+        # Draw corner markers
+        marker_size = 50
+        corners = [(0, 0), (GAME_WIDTH, 0), (0, GAME_HEIGHT), (GAME_WIDTH, GAME_HEIGHT)]
+        corner_colors = [(255, 100, 100), (100, 255, 100), (100, 100, 255), (255, 255, 100)]
+        for (cx, cy), color in zip(corners, corner_colors):
+            x = max(0, min(cx - marker_size//2, GAME_WIDTH - marker_size))
+            y = max(0, min(cy - marker_size//2, GAME_HEIGHT - marker_size))
+            pygame.draw.rect(game_surface, color, (x, y, marker_size, marker_size))
+
+        # Draw center crosshair
+        pygame.draw.line(game_surface, (200, 200, 200),
+                        (GAME_WIDTH//2 - 100, GAME_HEIGHT//2),
+                        (GAME_WIDTH//2 + 100, GAME_HEIGHT//2), 2)
+        pygame.draw.line(game_surface, (200, 200, 200),
+                        (GAME_WIDTH//2, GAME_HEIGHT//2 - 100),
+                        (GAME_WIDTH//2, GAME_HEIGHT//2 + 100), 2)
+
+        # Draw click markers
+        for gx, gy in click_markers:
+            pygame.draw.circle(game_surface, (255, 200, 0), (int(gx), int(gy)), 10)
+            pygame.draw.circle(game_surface, (255, 255, 255), (int(gx), int(gy)), 10, 2)
+
+        # Draw info
+        info_lines = [
+            f'Game: {GAME_WIDTH}x{GAME_HEIGHT}',
+            f'Window: {window_w}x{window_h}',
+            f'Scale: {scale:.3f}',
+            f'Offset: ({offset_x}, {offset_y})',
+            f'Transformed pos: {input_mgr.touch_pos}',
+            f'Click to test coordinates',
+            f'Press C to clear, ESC to quit',
+        ]
+        for i, line in enumerate(info_lines):
+            text = small_font.render(line, True, (200, 200, 200))
+            game_surface.blit(text, (20, 20 + i * 30))
+
+        # Scale and blit to window with letterboxing
+        window.fill((0, 0, 0))  # Black bars
+        scaled_surface = pygame.transform.smoothscale(game_surface, (scaled_w, scaled_h))
+        window.blit(scaled_surface, (offset_x, offset_y))
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+if __name__ == '__main__':
+    main()
+```
+
+
+================================================================================
+## Recommendation
+================================================================================
+
+1. **Start with Option A** - Fix coordinate transformation
+   - Less code change
+   - Preserves current game layout
+   - Focus on getting viewport size correctly
+
+2. **Investigate pygbag coordinate handling**
+   - Check if pygbag already transforms coordinates
+   - May need to adjust or disable our transformation
+
+3. **Add JavaScript initialization code**
+   - In web/index.html or injected by build.py
+   - Sets up fullscreen change listener
+   - Exposes viewport data to Python
+
+4. **Add debug visualization**
+   - Show coordinate info on screen during testing
+   - Verify transformation is working
+
+5. **Consider Option B later** if users want adaptive layouts
+   - More work but better experience on varied devices
+   - The coordinate fix from Option A is still needed
+
+
+================================================================================
+## Files to Modify
+================================================================================
+
+For Option A (coordinate fix):
+- `shared/input_manager.py` - Fix viewport size detection
+- `shared/fullscreen.py` - Add post-fullscreen viewport update
+- `web/index.html` or equivalent - Add JS viewport tracking
+- `main.py` - Pass updated screen references after fullscreen
+
+For testing:
+- `tests/test-a/main.py` - Raw pygame coordinate test (WASM-packagable)
+- `tests/test-b/main.py` - With InputManager transformation (WASM-packagable)
+- `tests/screen_size_test.py` - Desktop simulation test harness
+- `deploy-tests.py` - Script to package tests to docs/test-a and docs/test-b
+
+For Option B (adaptive layout):
+- Everything from Option A plus:
+- `screens/map/map_screen.py` - Dynamic camera viewport
+- `screens/map/map_render_system.py` - Handle variable screen size
+- `screens/dialogs/*.py` - Recalculate positions on resize
