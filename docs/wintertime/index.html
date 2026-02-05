@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Talvipukeutuminen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen active">
+        <div class="snowflakes" aria-hidden="true">
+            <div class="snowflake">❄</div>
+            <div class="snowflake">❅</div>
+            <div class="snowflake">❆</div>
+            <div class="snowflake">❄</div>
+            <div class="snowflake">❅</div>
+            <div class="snowflake">❆</div>
+            <div class="snowflake">❄</div>
+            <div class="snowflake">❅</div>
+        </div>
+        
+        <div class="home-top-icon">👧🏻</div>
+        
+        <button id="start-btn" class="sweet-button pulse">
+            <span class="play-icon">▶</span>
+        </button>
+        
+        <div class="kids-container">
+            <div id="kids-icons" class="kids-icons">
+                <!-- Kids icons will be added here by JS based on completion count -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dressing Screen -->
+    <div id="dressing-screen" class="screen">
+        <div class="dressing-header">
+            <button id="home-btn" class="nav-button">🏠</button>
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+        
+        <div class="clothes-container" id="clothes-container">
+            <!-- Clothes images will be shown here -->
+        </div>
+        
+        <div class="star-buttons" id="star-buttons">
+            <!-- Star buttons for selecting clothes -->
+        </div>
+        
+        <div id="fish-container" class="fish-container">
+            <!-- Fish will swim here -->
+        </div>
+    </div>
+    
+    <!-- Celebration Screen -->
+    <div id="celebration-screen" class="screen">
+        <div class="celebration-content">
+            <div class="big-star">⭐</div>
+            <div class="celebration-icons">👧🏻✨🎉</div>
+            <div class="big-fish">🐟</div>
+        </div>
+        <div id="snow-overlay" class="snow-overlay"></div>
+        <div id="rainbow-overlay" class="rainbow-overlay"></div>
+    </div>
+    
+    <script src="local-storage.js"></script>
+    <script src="star-animation.js"></script>
+    <script src="fish-animation.js"></script>
+    <script src="winter-animation.js"></script>
+</body>
+</html>
