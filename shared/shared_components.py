@@ -16,6 +16,8 @@ class Velocity:
     """Movement velocity of an entity"""
     vx: float
     vy: float
+    facing_dx: float = 0.0
+    facing_dy: float = -1.0
 
 
 @dataclass

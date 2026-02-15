@@ -287,7 +287,7 @@ async def main(start_map=1):
                     game_state = "end_score"
 
         # Draw debug icon last so it's always on top
-        if debug_overlay.draw_icon(input_mgr):
+        if not debug.is_wasm and debug_overlay.draw_icon(input_mgr):
             debug.overlay_visible = not debug.overlay_visible
             debug.info(
                 f"Debug overlay {'opened' if debug.overlay_visible else 'closed'}")

@@ -384,7 +384,7 @@ class MapScreen:
             MapMarker(name=name, x=x, y=y, marker_type=marker_type)
         )
 
-    def move_player_toward(self, target_x: float, target_y: float, speed: float = 1000.0, dt: float = 1/60):
+    def move_player_toward(self, target_x: float, target_y: float, speed: float = 200.0, dt: float = 1/60):
         """Move the player a single step toward the target, checking collision."""
         if self.player_entity is None:
             return
@@ -396,6 +396,12 @@ class MapScreen:
         dy = target_y - pos.y
         dist_squared = dx * dx + dy * dy
         dist = dist_squared ** 0.5
+        
+        # Always update facing direction
+        if dist > 0.01:
+            vel.facing_dx = dx / dist
+            vel.facing_dy = dy / dist
+        
         if dist < 1.0:
             pos.x = target_x
             pos.y = target_y
@@ -423,6 +429,8 @@ class MapScreen:
             pos.y = next_y
             vel.vx = step_x / dt
             vel.vy = step_y / dt
+            vel.facing_dx = dx / dist
+            vel.facing_dy = dy / dist
         else:
             vel.vx = 0.0
             vel.vy = 0.0

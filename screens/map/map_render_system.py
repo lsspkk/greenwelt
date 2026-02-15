@@ -2,8 +2,9 @@
 
 import esper
 import pygame
-from shared.shared_components import Position, DotRenderable
-from screens.map.components import MapBackground, RoadLayer, Camera, GreeneryLayer
+from shared.shared_components import Position, Velocity, DotRenderable
+from screens.map.components import MapBackground, RoadLayer, Camera, GreeneryLayer, PlayerOnMap
+from screens.map.character import Character
 
 
 class MapRenderSystem(esper.Processor):
@@ -11,6 +12,11 @@ class MapRenderSystem(esper.Processor):
 
     def __init__(self, screen: pygame.Surface):
         self.screen = screen
+        self.character = Character(
+            "assets/characters/cargocycle-one-frame1.png",
+            "assets/characters/cargocycle-one-frame2.png",
+            size=48
+        )
 
     def process(self, dt: float):
         # Fill background first
@@ -68,8 +74,11 @@ class MapRenderSystem(esper.Processor):
                 blend_mode=pygame.BLEND_RGB_MULT
             )
 
-        # Draw dots (player, markers)
+        # Draw dots (markers only, not the player)
         for ent, (pos, dot) in esper.get_components(Position, DotRenderable):
+            # Skip player entity - it gets drawn as a character sprite
+            if esper.has_component(ent, PlayerOnMap):
+                continue
             screen_x, screen_y = camera.world_to_screen(pos.x, pos.y)
             scaled_radius = int(dot.radius * camera.zoom)
             pygame.draw.circle(
@@ -78,6 +87,12 @@ class MapRenderSystem(esper.Processor):
                 (screen_x, screen_y),
                 scaled_radius
             )
+
+        # Draw player character sprite
+        for ent, (pos, vel, _player) in esper.get_components(Position, Velocity, PlayerOnMap):
+            self.character.update(vel.vx, vel.vy, dt, vel.facing_dx, vel.facing_dy)
+            screen_x, screen_y = camera.world_to_screen(pos.x, pos.y)
+            self.character.draw(self.screen, screen_x, screen_y, camera.zoom)
 
     def _draw_zoomed_surface(self, surface: pygame.Surface, camera: Camera,
                               view_left: float, view_top: float, blend_mode: int = 0):

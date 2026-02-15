@@ -176,7 +176,7 @@ class StartDialog:
         self.screen.fill(self.bg_color)
 
         # Title
-        title_text = "Viherpesu"
+        title_text = "Viherpesu - pelasta maailma!"
         title_surf = self.title_font.render(title_text, True, self.title_color)
         title_rect = title_surf.get_rect(center=(self.screen_width // 2, 200))
         self.screen.blit(title_surf, title_rect)
@@ -204,7 +204,6 @@ class StartDialog:
         # Draw main buttons
         self._draw_map_button(input_mgr)
         self._draw_fullscreen_button(input_mgr)
-        self._draw_exit_button(input_mgr)
 
     def _draw_audio_toggle_button(self, input_mgr):
         """Draw the audio toggle button"""
@@ -291,36 +290,6 @@ class StartDialog:
             (inner_rect.right + 5, inner_rect.bottom + 5),
             (inner_rect.right + 5 - arrow_size, inner_rect.bottom + 5),
             (inner_rect.right + 5, inner_rect.bottom + 5 - arrow_size)
-        ])
-
-    def _draw_exit_button(self, input_mgr):
-        """Draw the exit/quit button"""
-        rect = self.exit_button_rect
-        is_hovered = input_mgr.is_point_in_rect(input_mgr.touch_pos, rect)
-        color = self.button_hover_color if is_hovered else self.button_color
-
-        # Button background
-        pygame.draw.rect(self.screen, color, rect, border_radius=16)
-        pygame.draw.rect(self.screen, self.icon_color, rect, 3, border_radius=16)
-
-        # Exit icon: door with arrow
-        cx = rect.centerx
-        cy = rect.centery
-
-        # Door frame
-        door_rect = pygame.Rect(cx - 15, cy - 25, 30, 50)
-        pygame.draw.rect(self.screen, self.icon_color, door_rect, 3, border_radius=2)
-
-        # Door handle
-        pygame.draw.circle(self.screen, self.icon_color, (cx + 8, cy), 4)
-
-        # Arrow pointing out
-        arrow_x = cx - 30
-        pygame.draw.line(self.screen, self.icon_color, (arrow_x, cy), (arrow_x - 20, cy), 3)
-        pygame.draw.polygon(self.screen, self.icon_color, [
-            (arrow_x - 25, cy),
-            (arrow_x - 15, cy - 8),
-            (arrow_x - 15, cy + 8)
         ])
 
     def _draw_difficulty_buttons(self, input_mgr):

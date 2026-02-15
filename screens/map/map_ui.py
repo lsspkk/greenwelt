@@ -70,6 +70,16 @@ class MapUI:
         self.door_button_rect = pygame.Rect(32, 510, 84, 84)
         self.door_button_border = self.door_button_rect.inflate(12, 12)
 
+        # Load door icon
+        door_img = pygame.image.load("assets/ui/door.png").convert_alpha()
+        self.door_icon = pygame.transform.smoothscale(door_img, (84, 84))
+
+        # Create disabled (grayed out) version
+        self.door_icon_disabled = self.door_icon.copy()
+        dark_overlay = pygame.Surface((84, 84), pygame.SRCALPHA)
+        dark_overlay.fill((0, 0, 0, 140))
+        self.door_icon_disabled.blit(dark_overlay, (0, 0))
+
         # Delivery dialog
         self.delivery_dialog = DeliveryDialog(screen)
         self.delivery_dialog.on_order_completed = self._on_order_completed
@@ -532,7 +542,7 @@ class MapUI:
                 can_deliver = self._can_deliver_order(order)
 
         if show_door_button:
-            # Green if can deliver, gray if player has no matching plants
+            # Green background if can deliver, dark gray if not
             if can_deliver:
                 door_color = (100, 160, 100)
             else:
@@ -540,7 +550,12 @@ class MapUI:
 
             pygame.draw.rect(self.screen, door_color,
                              self.door_button_border, border_radius=12)
-            self._draw_door_icon(self.door_button_rect, enabled=can_deliver)
+
+            # Show full-color icon when can deliver, grayed out when not
+            if can_deliver:
+                self.screen.blit(self.door_icon, self.door_button_rect.topleft)
+            else:
+                self.screen.blit(self.door_icon_disabled, self.door_button_rect.topleft)
 
             # Only allow opening delivery dialog if player can deliver something
             if can_deliver and input_mgr.clicked_in_rect(self.door_button_rect):
@@ -654,47 +669,3 @@ class MapUI:
             # Bridge
             pygame.draw.line(self.screen, frame_color, (cx - 4, eye_y - 3), (cx + 4, eye_y - 3), 3)
 
-    def _draw_door_icon(self, rect: pygame.Rect, enabled: bool = True):
-        """Draw a door icon for the delivery button."""
-        cx = rect.centerx
-        cy = rect.centery
-
-        # White when enabled, dark gray when disabled
-        if enabled:
-            icon_color = (255, 255, 255)
-        else:
-            icon_color = (100, 100, 110)
-
-        # Door frame (rectangle)
-        door_width = 36
-        door_height = 50
-        door_rect = pygame.Rect(
-            cx - door_width // 2,
-            cy - door_height // 2,
-            door_width,
-            door_height
-        )
-        pygame.draw.rect(self.screen, icon_color,
-                         door_rect, 3, border_radius=3)
-
-        # Door handle (circle on right side)
-        handle_x = cx + door_width // 2 - 10
-        handle_y = cy + 2
-        pygame.draw.circle(self.screen, icon_color, (handle_x, handle_y), 5)
-
-        # Arrow pointing into door (from left)
-        arrow_start_x = cx - door_width // 2 - 20
-        arrow_end_x = cx - door_width // 2 - 5
-        arrow_y = cy
-
-        # Arrow line
-        pygame.draw.line(self.screen, icon_color,
-                         (arrow_start_x, arrow_y),
-                         (arrow_end_x, arrow_y), 3)
-
-        # Arrow head
-        pygame.draw.polygon(self.screen, icon_color, [
-            (arrow_end_x + 5, arrow_y),
-            (arrow_end_x - 5, arrow_y - 7),
-            (arrow_end_x - 5, arrow_y + 7)
-        ])
